@@ -1,6 +1,6 @@
 {
   "name": "scratch-vm",
-  "version": "5.0.186",
+  "version": "5.0.187",
   "description": "Virtual Machine for Scratch 3.0",
   "author": "Massachusetts Institute of Technology",
   "license": "AGPL-3.0-only",
@@ -8,7 +8,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/scratchfoundation/scratch-vm.git",
-    "sha": "f9f6512729ec2dc62c89d673e1b5895cb4efe8a6"
+    "sha": "db3844a477b3f64ff278f0ccbf7bae1424b4460e"
   },
   "main": "./dist/node/scratch-vm.js",
   "browser": "./dist/web/scratch-vm.js",
