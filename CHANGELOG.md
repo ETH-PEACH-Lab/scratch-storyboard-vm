@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [5.0.218](https://github.com/scratchfoundation/scratch-vm/compare/v5.0.217...v5.0.218) (2025-03-12)
+
+
+### Bug Fixes
+
+* **deps:** update dependency scratch-l10n to v5.0.159 ([2dcdc24](https://github.com/scratchfoundation/scratch-vm/commit/2dcdc24d6dbf8c70436ed699d44b2120a590dae7))
+
 ## [5.0.217](https://github.com/scratchfoundation/scratch-vm/compare/v5.0.216...v5.0.217) (2025-03-11)
 
 
