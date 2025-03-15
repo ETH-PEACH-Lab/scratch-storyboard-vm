@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [5.0.224](https://github.com/scratchfoundation/scratch-vm/compare/v5.0.223...v5.0.224) (2025-03-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency scratch-render-fonts to v1.0.174 ([1fa609c](https://github.com/scratchfoundation/scratch-vm/commit/1fa609c6eac5e4bb5286b2af15d1b67ff166e7bf))
+
 ## [5.0.223](https://github.com/scratchfoundation/scratch-vm/compare/v5.0.222...v5.0.223) (2025-03-15)
 
 
