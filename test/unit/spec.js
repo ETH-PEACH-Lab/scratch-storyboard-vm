@@ -19,8 +19,11 @@ test('interface', t => {
     t.type(vm.addCostume, 'function');
     t.type(vm.addBackdrop, 'function');
     t.type(vm.addSound, 'function');
+    t.type(vm.addBehavior, 'function');
     t.type(vm.deleteCostume, 'function');
     t.type(vm.deleteSound, 'function');
+    t.type(vm.deleteBehavior, 'function');
+    t.type(vm.addReferenceProject, 'function');
     t.type(vm.renameSprite, 'function');
     t.type(vm.deleteSprite, 'function');
 

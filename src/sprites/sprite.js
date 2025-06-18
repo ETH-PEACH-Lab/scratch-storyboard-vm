@@ -45,6 +45,33 @@ class Sprite {
         */
         this.sounds = [];
         /**
+         * List of behaviors for this sprite.
+         * * Each entry is an object, e.g.,
+         * {
+         *      name: "Jumping",
+         *      variables: "x, y",
+         *      description: "jump, land",
+         *      relatedSprites: "Bananas",
+         *      sounds: "ping",
+         *      costumes: "jumping",
+         *      possibleBlocks: ["when I start as a clone", "when green flag clicked"]
+         *      feedback: {
+         *          variables: "you only need y",
+         *          description: "jump height, jump speed",
+         *          relatedSprites: "Bananas",
+         *          possibleBlocks: ["when I start as a clone", "when green flag clicked"]
+         *      }
+         * }
+         * @type {Array.<!Dict>}
+         */
+        this.behaviors = [];
+
+        /**
+         * The sprite's blocks based on the storyboard
+         */
+        this.storyboardBlocks = new Blocks(runtime);
+
+        /**
          * List of clones for this sprite, including the original.
          * @type {Array.<!RenderedTarget>}
          */

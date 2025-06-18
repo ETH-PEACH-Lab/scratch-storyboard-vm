@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 let _TextEncoder;
 if (typeof TextEncoder === 'undefined') {
     _TextEncoder = require('text-encoding').TextEncoder;
@@ -23,6 +24,7 @@ const {loadCostume} = require('./import/load-costume.js');
 const {loadSound} = require('./import/load-sound.js');
 const {serializeSounds, serializeCostumes} = require('./serialization/serialize-assets');
 require('canvas-toBlob');
+const fetch = require('node-fetch');
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -67,6 +69,28 @@ class VirtualMachine extends EventEmitter {
          * @type {Target}
          */
         this._dragTarget = null;
+
+        /**
+         * The reference project string, used to identify the project
+         * @type {String}
+         */
+        this.referenceProjectString = null;
+
+        // this.storyboardOverall = {
+        //     title: '',
+        //     description: '',
+        //     globalVariables: '',
+        //     descriptionFeedback: '',
+        //     globalVariablesFeedback: ''
+        // };
+
+        this.storyboardOverall = {
+            title: 'Äpfel sammeln',
+            description: 'Bewege die Schale und sammle die Äpfel ein. Die roten Äpfel sind geben einen Punkt, und die goldenen Äpfel geben zwei Punkte. Bei 10 Punkten hat mab gewonnen',
+            globalVariables: 'Punkte',
+            descriptionFeedback: '',
+            globalVariablesFeedback: ''
+        }; // for testing purposes
 
         // Runtime emits are passed along as VM emits.
         this.runtime.on(Runtime.SCRIPT_GLOW_ON, glowData => {
@@ -500,7 +524,17 @@ class VirtualMachine extends EventEmitter {
             }
             if (projectVersion === 3) {
                 const sb3 = require('./serialization/sb3');
-                return sb3.deserialize(projectJSON, runtime, zip);
+                return sb3.deserialize(projectJSON, runtime, zip).then(result => {
+                    // Attach raw sprite JSON to each result target for behaviors
+                    const originalTargets = projectJSON.targets || [];
+                    result.targets.forEach((target, i) => {
+                        const original = originalTargets[i];
+                        if (original?.behaviors) {
+                            target.behaviors = original.behaviors;
+                        }
+                    });
+                    return result;
+                });
             }
             // TODO: reject with an Error (possible breaking API change!)
             // eslint-disable-next-line prefer-promise-reject-errors
@@ -540,6 +574,9 @@ class VirtualMachine extends EventEmitter {
             targets.forEach(target => {
                 this.runtime.addTarget(target);
                 (/** @type RenderedTarget */ target).updateAllDrawableProperties();
+                if (target.behaviors) {
+                    target.sprite.behaviors = target.behaviors;
+                }
                 // Ensure unique sprite name
                 if (target.isSprite()) this.renameSprite(target.id, target.getName());
             });
@@ -861,6 +898,259 @@ class VirtualMachine extends EventEmitter {
             return restoreFun;
         }
         return null;
+    }
+
+    /**
+     * Add a behavior to the current editing target.
+     * @param {*} behaviorObject - the behavior to be added.
+     * @param {*} optTargetId - optional id of the target to add the behavior to.
+     * @returns {Promise} - a promise that resolves when the behavior is added.
+     */
+    addBehavior (behaviorObject, optTargetId) {
+        const target = optTargetId ? this.runtime.getTargetById(optTargetId) :
+            this.editingTarget;
+        if (target) {
+            return target.addBehavior(behaviorObject);
+        }
+        // If the target cannot be found by id, return a rejected promise
+        return new Promise.reject();
+    }
+
+    /**
+     * Delete a behavior from the current editing target.
+     * @param {int} behaviorIndex - the index of the behavior to be removed.
+     * @return {?Function} A function to restore the behavior that was deleted,
+     * or null, if no behavior was deleted.
+     */
+    deleteBehavior (behaviorIndex) {
+        const target = this.editingTarget;
+        const deletedBehavior = this.editingTarget.deleteBehavior(behaviorIndex);
+        if (deletedBehavior) {
+            this.runtime.emitProjectChanged();
+            const restoreFun = () => {
+                target.addBehavior(deletedBehavior);
+                this.emitTargetsUpdate();
+            };
+            return restoreFun;
+        }
+        return null;
+    }
+
+    /**
+     * Get a string representation of the image from storage.
+     * @param {json} referenceObject - the reference project object to be added.
+     * @return {string} the reference project string.
+     */
+    addReferenceProject (referenceObject){
+        this.referenceProjectString = JSON.stringify(referenceObject);
+        
+        // console.log('Reference project added:', this.referenceProjectString);
+        return this.referenceProjectString;
+    }
+
+    feedbackPrompt () {
+
+        const prompt = `You are an assistant that gives structured feedback on children's Scratch projects.
+        You will be given a project description, a list of behaviors, and a reference project.
+        The project description and list of behaviors will be in German.
+        Your task is to provide feedback on the project in German, including:
+        1. On the description of the project.
+        2. On the list of global variables used in the project.
+        3. And for each sprite on a list of behaviors used in the project, 
+        including their descriptions and any related sprites or blocks.
+        
+        Only respond with a valid JSON object.
+        The response should be structured as follows:
+        {
+            "feedback": {
+                "overallDescriptionFeedback": "correctness and completeness of the overall project description.",
+                "globalVariablesFeedback": "correctness and completeness of the global variables.",
+                "sprites": [
+                    {
+                        "name": "Sprite name",
+                        "behaviorFeedback": [
+                            {
+                                "name": "The name of the behavior.",
+                                "descriptionFeedback": "correctness and completeness of the behavior description.",
+                                "variablesFeedback": "correctness and completeness of the behavior variables.",
+                                "relatedSpritesFeedback": "correctness and completeness of the related sprites.",
+                                "soundsFeedback": "correctness and completeness of the sounds.",
+                                "costumesFeedback": "correctness and completeness of the costumes.",
+                                "possibleBlocksFeedback": "correctness and completeness of the possible blocks."
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+            
+        Here is the reference project from a json object:
+        ${this.referenceProjectString}
+
+        Here is the project title:
+        ${this.storyboardOverall.title}
+
+        Here is the overall project description:
+        ${this.storyboardOverall.description}
+
+        Here are the global variables comma-separated:
+        ${this.storyboardOverall.globalVariables}
+
+        Here are the behaviors:
+        ${JSON.stringify(this.runtime.targets.map(target => ({
+        name: target.getName(),
+        behaviors: target.sprite.behaviors.map(behavior => ({
+            name: behavior.name,
+            description: behavior.description,
+            variables: behavior.variables,
+            relatedSprites: behavior.relatedSprites,
+            relatedBlocks: behavior.relatedBlocks
+        }))
+    })))}`.trim();
+
+        return prompt;
+    }
+
+    async getFeedback () {
+
+        const prompt = this.feedbackPrompt();
+        console.log(new Date().toISOString());
+        console.log(prompt);
+        const response = await this.callOllama(prompt);
+        console.log(new Date().toISOString());
+
+        const returnA = response ? response : 'No response from the AI model.';
+
+        return returnA;
+        // try {
+        //     const responseObject = JSON.parse(response);
+        //     if (responseObject.feedback) {
+        //         this.storyboardOverall.descriptionFeedback = responseObject.feedback.overallDescriptionFeedback;
+        //         this.storyboardOverall.globalVariablesFeedback = responseObject.feedback.globalVariablesFeedback;
+
+        //         // matching feedback to sprites and behaviors
+        //         this.runtime.targets.forAll(target => {
+        //             if (!Array.isArray(target.sprite.behaviors)) return;
+        //             target.sprite.behaviors.forAll(behavior => {
+        //                 behavior.feedback.description = responseObject.feedback.sprites.find(sprite =>
+        //                     sprite.name === target.getName())
+        //                     .behaviorFeedback.find(b => b.name === behavior.name).descriptionFeedback;
+        //                 behavior.feedback.variables = responseObject.feedback.sprites.find(sprite =>
+        //                     sprite.name === target.getName())
+        //                     .behaviorFeedback.find(b => b.name === behavior.name).variablesFeedback;
+        //                 behavior.feedback.relatedSprites = responseObject.feedback.sprites.find(sprite =>
+        //                     sprite.name === target.getName())
+        //                     .behaviorFeedback.find(b => b.name === behavior.name).relatedSpritesFeedback;
+        //                 behavior.feedback.relatedBlocks = responseObject.feedback.sprites.find(sprite =>
+        //                     sprite.name === target.getName())
+        //                     .behaviorFeedback.find(b => b.name === behavior.name).relatedBlocksFeedback;
+        //             });
+        //         });
+        //         this.emitTargetsUpdate();
+        //         return 'parsable feedback';
+        //     }
+        //     console.error('Feedback not found in response:', responseObject);
+        //     this.storyboardOverall.descriptionFeedback = response;
+        //     return response;
+        // } catch (e) {
+        //     console.error('Error parsing response:', e);
+        //     return returnA;
+        // }
+
+    }
+
+    async callOllama (feedbackPrompt) {
+        const response = await fetch('http://10.5.41.47:3001/api/ollama', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: feedbackPrompt
+            })
+        });
+
+        const text = await response.text();
+        return text;
+    }
+
+    setStoryboardTitle (title) {
+        this.storyboardOverall.title = title;
+        this.emitTargetsUpdate();
+    }
+
+    setStoryboardDescription (description) {
+        this.storyboardOverall.description = description;
+        this.emitTargetsUpdate();
+    }
+
+    setStoryboardGlobalVariables (variables) {
+        this.storyboardOverall.globalVariables = variables;
+        this.emitTargetsUpdate();
+    }
+
+    translationPrompt () {
+        return `You are an assistant that translates project descriptions and behaviors to a Scratch 3.0 project json.
+        
+        Here is the project name:
+        ${this.storyboardOverall.name}
+        
+        Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
+        ${this.storyboardOverall.description}
+
+        Here are the global variables comma-separated that might be used for the win/loss conditions:
+        ${this.storyboardOverall.globalVariables}
+
+        List of sprites (e.g. Cat, Ball, Goal)
+        For each sprite:
+        * What it looks like (pick the predefined asset and 
+        create the additionally described looks based the costumes description)
+        * What it does (movement, interaction, control)
+    
+        Here are the behaviors (movement, interaction, control) for each sprite:
+        ${JSON.stringify(this.runtime.targets.map(target => ({
+        name: target.getName(),
+        behaviors: target.sprite.behaviors.map(behavior => ({
+            name: behavior.name,
+            description: behavior.description,
+            variables: behavior.variables,
+            sounds: behavior.sounds,
+            costumes: behavior.costumes,
+            relatedSprites: behavior.relatedSprites,
+            possibleBlocks: behavior.possibleBlocks
+        }))
+    })))}
+
+    Here is the reference project from a json object, basically a solution to the project:
+    ${this.referenceProjectString}
+
+    First try to understand the reference project as it is a solution to the project (what is happening?).
+    Then based on the students' project description and the solution give feedback on the students' description.
+    Only give feedback in the json feedback structure with the keys mentioned above. 
+    
+    `.trim();
+    }
+
+    /**
+     * Parses the description of the project and converts it to blocks.
+     * @returns {string} The prompt for translation to blocks.
+     */
+    async descriptionToBlocks (){
+        const prompt = this.translationPrompt();
+        console.log(new Date().toISOString());
+        const response = await this.callOllama(prompt);
+        console.log(new Date().toISOString());
+        return response;
+        // this.callOllama(prompt).then(response => {
+
+        //     const responseObject = JSON.parse(response);
+
+        //     // this.runtime.targets.forAll(target => {
+
+        //     //     target.sprite.storyboardBlocks.createBlock(this.runtime);
+        //     // });
+        //     return responseObject;
+        // });
     }
 
     /**

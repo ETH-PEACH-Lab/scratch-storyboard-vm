@@ -566,6 +566,34 @@ class RenderedTarget extends Target {
     }
 
     /**
+     * Add a behavior to this sprite.
+     * @param {!object} behaviorObject Object representing the behavior.
+     * @param {?int} index Index at which to add behavior
+     */
+    addBehavior (behaviorObject, index) {
+        if (typeof index === 'number' && !isNaN(index)) {
+            this.sprite.behaviors.splice(index, 0, behaviorObject);
+        } else {
+            this.sprite.behaviors.push(behaviorObject);
+        }
+        this.runtime.requestTargetsUpdate(this);
+    }
+
+    /**
+     * Delete a behavior by index.
+     * @param {number} index Behavior index to be deleted
+     * @return {object} The deleted behavior object, or null if no behavior was deleted.
+     */
+    deleteBehavior (index) {
+        if (index < 0 || index >= this.sprite.behaviors.length) {
+            return null;
+        }
+        const deletedBehavior = this.sprite.behaviors.splice(index, 1)[0];
+        this.runtime.requestTargetsUpdate(this);
+        return deletedBehavior;
+    }
+
+    /**
      * Update the rotation style.
      * @param {!string} rotationStyle New rotation style.
      */
