@@ -49,14 +49,14 @@ class Sprite {
          * * Each entry is an object, e.g.,
          * {
          *      name: "Jumping",
-         *      variables: "x, y",
+         *      variables: ['x position', 'y position'],
          *      description: "jump, land",
-         *      relatedSprites: "Bananas",
+         *      relatedSprites: ["Bananas"],
          *      sounds: "ping",
          *      costumes: "jumping",
          *      possibleBlocks: ["when I start as a clone", "when green flag clicked"]
          *      feedback: {
-         *          variables: "you only need y",
+         *          variables: "you missed the points",
          *          description: "jump height, jump speed",
          *          relatedSprites: "Bananas",
          *          possibleBlocks: ["when I start as a clone", "when green flag clicked"]

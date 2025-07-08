@@ -76,6 +76,12 @@ class VirtualMachine extends EventEmitter {
          */
         this.referenceProjectString = null;
 
+        /**
+         * The reference project pseudo string, used to identify the project
+         * @type {String}
+         */
+        this.referenceProjectPseudoCodeString = null;
+
         // this.storyboardOverall = {
         //     title: '',
         //     description: '',
@@ -87,10 +93,12 @@ class VirtualMachine extends EventEmitter {
         this.storyboardOverall = {
             title: 'Äpfel sammeln',
             description: 'Bewege die Schale und sammle die Äpfel ein. Die roten Äpfel sind geben einen Punkt, und die goldenen Äpfel geben zwei Punkte. Bei 10 Punkten hat mab gewonnen',
-            globalVariables: 'Punkte',
+            globalVariables: ['Punkte'],
             descriptionFeedback: '',
             globalVariablesFeedback: ''
         }; // for testing purposes
+
+        this.feedbacks = [];
 
         // Runtime emits are passed along as VM emits.
         this.runtime.on(Runtime.SCRIPT_GLOW_ON, glowData => {
@@ -948,56 +956,79 @@ class VirtualMachine extends EventEmitter {
         return this.referenceProjectString;
     }
 
-    feedbackPrompt () {
+    /**
+     * Get a string representation of the image from storage.
+     * @param {string} pseudocode - the reference project pseudocode to be added.
+     * @return {string} the reference project string.
+     */
+    addReferenceProjectPseudocode (pseudocode){
+        this.referenceProjectPseudoCodeString = pseudocode;
+        return this.referenceProjectPseudoCodeString;
+    }
 
-        const prompt = `You are an assistant that gives structured feedback on children's Scratch projects.
-        You will be given a project description, a list of behaviors, and a reference project.
-        The project description and list of behaviors will be in German.
-        Your task is to provide feedback on the project in German, including:
-        1. On the description of the project.
-        2. On the list of global variables used in the project.
-        3. And for each sprite on a list of behaviors used in the project, 
-        including their descriptions and any related sprites or blocks.
-        
-        Only respond with a valid JSON object.
-        The response should be structured as follows:
-        {
-            "feedback": {
-                "overallDescriptionFeedback": "correctness and completeness of the overall project description.",
-                "globalVariablesFeedback": "correctness and completeness of the global variables.",
-                "sprites": [
-                    {
-                        "name": "Sprite name",
-                        "behaviorFeedback": [
-                            {
-                                "name": "The name of the behavior.",
-                                "descriptionFeedback": "correctness and completeness of the behavior description.",
-                                "variablesFeedback": "correctness and completeness of the behavior variables.",
-                                "relatedSpritesFeedback": "correctness and completeness of the related sprites.",
-                                "soundsFeedback": "correctness and completeness of the sounds.",
-                                "costumesFeedback": "correctness and completeness of the costumes.",
-                                "possibleBlocksFeedback": "correctness and completeness of the possible blocks."
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
-            
-        Here is the reference project from a json object:
-        ${this.referenceProjectString}
+    understandingFeedbackPrompt (language) {
+        const prompt = `You are an assistant that gives structured feedback on a middle school students' Scratch projects.
+You will be given a project description, a list of behaviors, and a reference project, basically a solution to the project the student should rebuild.
+The project description and list of behaviors will be in ${language}.
+Your task is to provide feedback on the project in ${language}, including:
+1. On the description of the project.
+2. On the list of global variables used in the project.
+3. And for each sprite on a list of behaviors used in the project.
+    
+Here is the reference project the pseudo code of the sprites behavior.
+${this.referenceProjectPseudoCodeString}
 
-        Here is the project title:
-        ${this.storyboardOverall.title}
+Everything below is the students' project description and behaviors.
+Project title: ${this.storyboardOverall.title}
+Overall project description: ${this.storyboardOverall.description}
+Global variables comma-separated: ${this.storyboardOverall.globalVariables}
 
-        Here is the overall project description:
-        ${this.storyboardOverall.description}
+The behavior names for each sprite:
+${JSON.stringify(this.runtime.targets.map(target => ({
+        name: target.getName(),
+        behaviors: target.sprite.behaviors.map(behavior => ({
+            name: behavior.name
+        }))
+    })))}
 
-        Here are the global variables comma-separated:
-        ${this.storyboardOverall.globalVariables}
+First try to understand the reference project as it is a solution to the project (what is happening?). 
+But don't state what you have understood it in the feedback neither that you have access to the pseudocode.
+Then based on the students' project description and the solution give feedback on the students' description.
+The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. 
+Don't be too long, but be specific and clear. It is feedback for a middle school student and needs to be in German.
+`.trim();
 
-        Here are the behaviors:
-        ${JSON.stringify(this.runtime.targets.map(target => ({
+        return prompt;
+    }
+
+    planningFeedbackPrompt (language) {
+
+        const prompt = `You are an assistant that gives structured feedback on students' Scratch projects.
+You will be given a project description, a list of behaviors, and a reference project.
+The project description and list of behaviors will be in ${language}.
+Your task is to provide feedback on the project in ${language}, including:
+1. On the description of the project.
+2. On the list of global variables used in the project.
+3. And for each sprite on a list of behaviors used in the project, 
+including their descriptions and any related sprites or blocks.
+
+Here is the reference project pseudo code from each sprite:
+${this.referenceProjectPseudoCodeString}
+
+You have given feedback on the project description and the behaviors in the previous step. Now the student is ready to plan the project.
+Which means they are further describing the behaviors with variables, related sprites, sounds, costumes. 
+The variables were selected from a predefined list including the global variables and the sprite variables like x, y coordinates.
+The related sprites were also selected from a predefined list of sprites that are part of the project, excluding the sprite this behavior belongs to.
+The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it.
+
+Everything below is the students' project description and behaviors.
+The project title: ${this.storyboardOverall.title}
+The overall project description:
+${this.storyboardOverall.description}
+The global variables comma-separated: ${this.storyboardOverall.globalVariables}
+
+The sprite behaviors:
+${JSON.stringify(this.runtime.targets.map(target => ({
         name: target.getName(),
         behaviors: target.sprite.behaviors.map(behavior => ({
             name: behavior.name,
@@ -1006,61 +1037,210 @@ class VirtualMachine extends EventEmitter {
             relatedSprites: behavior.relatedSprites,
             relatedBlocks: behavior.relatedBlocks
         }))
-    })))}`.trim();
+    })))}
+    
+The feedback should be structured as follows:
+{
+    "overallDescriptionFeedback": "correctness and completeness of the overall project description.",
+    "globalVariablesFeedback": "correctness and completeness of the global variables.",
+    "sprites": [
+        {
+            "name": "Sprite name",
+            "behaviors": [
+                {
+                    "name": "Behavior name",
+                    "feedback": {
+                        "variables": "correctness and completeness of the behavior variables.",    
+                        "description": "correctness and completeness of the behavior description.",  
+                        "sounds": "correctness and completeness of the sounds.",
+                        "costumes": "correctness and completeness of the costumes.",
+                        "relatedSprites": "correctness and completeness of the related sprites.",
+                    }
+                }
+            ]
+            
+        }
+    ]
+}
+
+Always add the feedback in the corresponding field of the sprite and behavior. If there is no behavior for a specific sprite do not make it up. 
+Only give feedback in the json feedback structure with double quotes with the keys mentioned above. 
+And for the fields like relatedSprites and variables give feedback about completeness and correctness do not list the individual items in the list.
+`.trim();
+
+        if (this.feedbacks.length > 0) {
+            const matches = this.feedbacks.filter(item => item.type === 'understanding');
+            const lastMatch = matches.at(-1);
+            const lastResponse = lastMatch ? lastMatch.response : '';
+            if (lastMatch && lastResponse) {
+
+                const lastPrompt = lastMatch ? lastMatch.prompt : '';
+                const memory = `The last prompt including the last state of the description was 
+                ${lastPrompt}. 
+                And the last feedback response was: ${lastResponse}`;
+                const finalPrompt = prompt + memory;
+                return finalPrompt;
+            }
+        }
 
         return prompt;
     }
 
-    async getFeedback () {
+    statusfeedbackPrompt (feedback) {
+        const prompt = `
+Based on the following feedback, state if the corresponding components of the sprite and behavior are Complete, Incomplete or NeedsImprovement
 
-        const prompt = this.feedbackPrompt();
+here is the feedback: ${feedback}
+
+The output should look like this, but have the sprite names from the project and feedback above:
+
+{
+    "overallDescriptionFeedback": "NeedsImprovement",
+    "globalVariablesFeedback": "Complete",
+    "sprites": [
+        {
+            "name": "Sprite name 1",
+            "behaviors": [
+                { 
+                    "name": "Behavior name 1",
+                    "feedback": {
+                        "description": "NeedsImprovement",
+                        "variables": "Incomplete",
+                        "sounds": "Complete",
+                        "costumes": "Complete",
+                        "relatedSprites": "Complete"
+                    }
+                } 
+            ]
+        },
+        {
+            "name": "Sprite name 2",
+            "behaviors": [
+                { 
+                    "name": "Behavior name 3",
+                    "feedback": {
+                        "description": "NeedsImprovement",
+                        "variables": "Incomplete",
+                        "sounds": "Complete",
+                        "costumes": "Complete",
+                        "relatedSprites": "Incomplete"
+                    }
+                } 
+            ]
+        }
+    ]
+}
+
+Based on the given feedback make a prediction of the status of the component for all sprites and all behaviors and all fields. 
+If there is no behavior for a specific sprite do not make it up. And for the fields like relatedSprites and variables also only select the status whether the list is Complete or Incomplete or NeedsImprovement if a wrong option was selected.
+`.trim();
+        return prompt;
+    }
+
+    async getUnderstandingFeedback () {
+
+        const prompt = this.understandingFeedbackPrompt(this.getLocale().language);
         console.log(new Date().toISOString());
         console.log(prompt);
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
+        console.log(response);
+        
+        this.feedbacks.push({
+            type: 'understanding',
+            language: this.getLocale().language,
+            prompt,
+            response
+        });
+        this.emitTargetsUpdate();
+        return response.response;
+    }
 
-        const returnA = response ? response : 'No response from the AI model.';
+    async getPlanningFeedback () {
 
-        return returnA;
-        // try {
-        //     const responseObject = JSON.parse(response);
-        //     if (responseObject.feedback) {
-        //         this.storyboardOverall.descriptionFeedback = responseObject.feedback.overallDescriptionFeedback;
-        //         this.storyboardOverall.globalVariablesFeedback = responseObject.feedback.globalVariablesFeedback;
+        const prompt = this.planningFeedbackPrompt(this.getLocale().language);
+        console.log(new Date().toISOString());
+        // console.log(prompt);
+        const response = await this.callOllama(prompt);
+        console.log(new Date().toISOString());
 
-        //         // matching feedback to sprites and behaviors
-        //         this.runtime.targets.forAll(target => {
-        //             if (!Array.isArray(target.sprite.behaviors)) return;
-        //             target.sprite.behaviors.forAll(behavior => {
-        //                 behavior.feedback.description = responseObject.feedback.sprites.find(sprite =>
-        //                     sprite.name === target.getName())
-        //                     .behaviorFeedback.find(b => b.name === behavior.name).descriptionFeedback;
-        //                 behavior.feedback.variables = responseObject.feedback.sprites.find(sprite =>
-        //                     sprite.name === target.getName())
-        //                     .behaviorFeedback.find(b => b.name === behavior.name).variablesFeedback;
-        //                 behavior.feedback.relatedSprites = responseObject.feedback.sprites.find(sprite =>
-        //                     sprite.name === target.getName())
-        //                     .behaviorFeedback.find(b => b.name === behavior.name).relatedSpritesFeedback;
-        //                 behavior.feedback.relatedBlocks = responseObject.feedback.sprites.find(sprite =>
-        //                     sprite.name === target.getName())
-        //                     .behaviorFeedback.find(b => b.name === behavior.name).relatedBlocksFeedback;
-        //             });
-        //         });
-        //         this.emitTargetsUpdate();
-        //         return 'parsable feedback';
-        //     }
-        //     console.error('Feedback not found in response:', responseObject);
-        //     this.storyboardOverall.descriptionFeedback = response;
-        //     return response;
-        // } catch (e) {
-        //     console.error('Error parsing response:', e);
-        //     return returnA;
-        // }
+        const returnA = response ? response.response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
+
+        this.feedbacks.push({
+            type: 'planning',
+            language: this.getLocale().language,
+            prompt,
+            returnA
+        });
+        this.emitTargetsUpdate();
+
+        const statusPrompt = this.statusfeedbackPrompt(returnA);
+        console.log(new Date().toISOString());
+        console.log(statusPrompt);
+        const statusResponse = await this.callOllama(statusPrompt);
+        console.log(new Date().toISOString());
+
+        const status = statusResponse ? statusResponse.response.match(/{[\s\S]*}/)[0] : 'No status response from the AI model.';
+        console.log(status);
+
+
+        try {
+            const responseObject = JSON.parse(returnA);
+            const returnStatus = JSON.parse(status);
+
+            if (responseObject) {
+                this.storyboardOverall.descriptionFeedback = responseObject.overallDescriptionFeedback;
+                this.storyboardOverall.globalVariablesFeedback = responseObject.globalVariablesFeedback;
+
+                // matching feedback to sprites and behaviors
+                this.runtime.targets.forEach(target => {
+                    if (!Array.isArray(target.sprite.behaviors)) return;
+                    target.sprite.behaviors.forEach(behavior => {
+                        behavior.feedback.description.text = responseObject.sprites.find(sprite =>
+                            sprite.name === target.getName())
+                            .behaviors.find(b => b.name === behavior.name).feedback.description;
+                        behavior.feedback.variables.text = responseObject.sprites.find(sprite =>
+                            sprite.name === target.getName())
+                            .behaviors.find(b => b.name === behavior.name).feedback.variables;
+                        behavior.feedback.relatedSprites.text = responseObject.sprites.find(sprite =>
+                            sprite.name === target.getName())
+                            .behaviors.find(b => b.name === behavior.name).feedback.relatedSprites;
+                    });
+                });
+
+                if (returnStatus) {
+                    this.runtime.targets.forEach(target => {
+                        if (!Array.isArray(target.sprite.behaviors)) return;
+                        target.sprite.behaviors.forEach(behavior => {
+                            behavior.feedback.description.color = returnStatus.sprites.find(sprite =>
+                                sprite.name === target.getName())
+                                .behaviors.find(b => b.name === behavior.name).feedback.description;
+                            behavior.feedback.variables.color = returnStatus.sprites.find(sprite =>
+                                sprite.name === target.getName())
+                                .behaviors.find(b => b.name === behavior.name).feedback.variables;
+                            behavior.feedback.relatedSprites.color = returnStatus.sprites.find(sprite =>
+                                sprite.name === target.getName())
+                                .behaviors.find(b => b.name === behavior.name).feedback.relatedSprites;
+                        });
+                    });
+                }
+
+                this.emitTargetsUpdate();
+                console.log(this.runtime.targets);
+                return 'parsable feedback';
+            }
+            console.error('Feedback not found in response:', responseObject);
+            this.storyboardOverall.descriptionFeedback = response;
+            return response;
+        } catch (e) {
+            console.error('Error parsing response:', e);
+            return returnA[0];
+        }
 
     }
 
     async callOllama (feedbackPrompt) {
-        const response = await fetch('http://10.5.41.47:3001/api/ollama', {
+        const response = await fetch('http://127.0.0.1:3001/api/ollama', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1070,8 +1250,10 @@ class VirtualMachine extends EventEmitter {
             })
         });
 
-        const text = await response.text();
-        return text;
+        // const text = await response.text();
+        // return text;
+        const responseJson = await response.json();
+        return responseJson.response;
     }
 
     setStoryboardTitle (title) {
@@ -1090,25 +1272,20 @@ class VirtualMachine extends EventEmitter {
     }
 
     translationPrompt () {
-        return `You are an assistant that translates project descriptions and behaviors to a Scratch 3.0 project json.
-        
-        Here is the project name:
-        ${this.storyboardOverall.name}
-        
-        Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
-        ${this.storyboardOverall.description}
+        return `You are an assistant that translates project descriptions and sprite behaviors to a Scratch 3.0 project json.
 
-        Here are the global variables comma-separated that might be used for the win/loss conditions:
-        ${this.storyboardOverall.globalVariables}
+    Here is the project name:
+    ${this.storyboardOverall.name}
 
-        List of sprites (e.g. Cat, Ball, Goal)
-        For each sprite:
-        * What it looks like (pick the predefined asset and 
-        create the additionally described looks based the costumes description)
-        * What it does (movement, interaction, control)
-    
-        Here are the behaviors (movement, interaction, control) for each sprite:
-        ${JSON.stringify(this.runtime.targets.map(target => ({
+    Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
+    ${this.storyboardOverall.description}
+
+    Here are the global variables comma-separated that might be used for the win/loss conditions:
+    ${this.storyboardOverall.globalVariables}
+
+
+    Here are the list of behaviors (movement, interaction, control) for each sprite:
+    ${JSON.stringify(this.runtime.targets.map(target => ({
         name: target.getName(),
         behaviors: target.sprite.behaviors.map(behavior => ({
             name: behavior.name,
@@ -1116,18 +1293,29 @@ class VirtualMachine extends EventEmitter {
             variables: behavior.variables,
             sounds: behavior.sounds,
             costumes: behavior.costumes,
-            relatedSprites: behavior.relatedSprites,
-            possibleBlocks: behavior.possibleBlocks
+            relatedSprites: behavior.relatedSprites
         }))
     })))}
 
-    Here is the reference project from a json object, basically a solution to the project:
-    ${this.referenceProjectString}
+    Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
 
-    First try to understand the reference project as it is a solution to the project (what is happening?).
-    Then based on the students' project description and the solution give feedback on the students' description.
-    Only give feedback in the json feedback structure with the keys mentioned above. 
-    
+    Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
+
+    when [space v] key pressed::event
+    repeat (10)
+        change y by (10)
+    end
+    repeat (10)
+        change y by (-10)
+    end
+    change [Punkte v] by (1)
+
+    when @greenFlag clicked
+    go to x: (-180) y: (-130)
+    set [Punkte v] to [0]
+
+
+    Translate the project description and sprite behaviors to pseudo code for each sprite, using the provided blocks. The pseudo code should be in the same format as the example above.
     `.trim();
     }
 
@@ -1140,17 +1328,47 @@ class VirtualMachine extends EventEmitter {
         console.log(new Date().toISOString());
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
+
+        // this.runtime.createNewGlobalVariable(this.storyboardOverall.globalVariables);
+        this.runtime.targets.forAll(target => {
+            const behaviorBlocks = this.extractBehaviorBlocks(response, target.getName());
+
+            // per block group create the blocks ?
+            // behaviorBlocks.forEach(block => {
+            //     target.sprite.storyboardBlocks.createBlock(this.runtime);
+            // });
+        });
+
         return response;
-        // this.callOllama(prompt).then(response => {
+    }
 
-        //     const responseObject = JSON.parse(response);
+    extractBehaviorBlocks (feedbackResponse, targetName) {
+        const regex = new RegExp(`\\*\\*${targetName}\\*\\*\\s*([\\s\\S]*?)(?=\\*\\*|$)`);
+        const match = feedbackResponse.match(regex);
 
-        //     // this.runtime.targets.forAll(target => {
+        if (!match) return [];
 
-        //     //     target.sprite.storyboardBlocks.createBlock(this.runtime);
-        //     // });
-        //     return responseObject;
-        // });
+        const sectionContent = match[1].trim();
+        return sectionContent
+            .split(/\n\s*\n/) // split on blank lines
+            .map(p => p.trim())
+            .filter(p => p.length > 0);
+    }
+
+    copyStoryboardToComments () {
+        // Copy the storyboard description to the comments of each sprite
+        this.runtime.targets.forEach(target => {
+            if (target.isSprite()) {
+                target.behaviors.forEach(behavior => {
+                    const commentText = `${behavior.name}\n${behavior.description}\n
+Variables: ${behavior.variables.join(', ')}
+Related Sprites: ${behavior.relatedSprites.join(', ')}`;
+                    const index = target.sprite.behaviors.indexOf(behavior);
+                    target.createComment(behavior.name, null, commentText, 500, 500 - (index * 250), 250, 200, false);
+                });
+            }
+        });
+        this.emitTargetsUpdate();
     }
 
     /**
