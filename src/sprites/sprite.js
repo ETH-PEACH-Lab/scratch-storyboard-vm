@@ -66,10 +66,6 @@ class Sprite {
          */
         this.behaviors = [];
 
-        /**
-         * The sprite's blocks based on the storyboard
-         */
-        this.storyboardBlocks = new Blocks(runtime);
 
         /**
          * List of clones for this sprite, including the original.

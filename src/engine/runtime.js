@@ -299,6 +299,12 @@ class Runtime extends EventEmitter {
         this.turboMode = false;
 
         /**
+         * Whether the project is in "storyboard mode."
+         * @type {Boolean}
+         */
+        this.storyboardMode = false;
+
+        /**
          * Whether the project is in "compatibility mode" (30 TPS).
          * @type {Boolean}
          */
@@ -1951,7 +1957,12 @@ class Runtime extends EventEmitter {
         }
         for (let t = targets.length - 1; t >= 0; t--) {
             const target = targets[t];
-            const scripts = target.blocks.getScripts();
+            let scripts;
+            if (this.storyboardMode) {
+                scripts = target.storyboardblocks.getScripts();
+            } else {
+                scripts = target.blocks.getScripts();
+            }
             for (let j = 0; j < scripts.length; j++) {
                 const topBlockId = scripts[j];
                 f(topBlockId, target);
@@ -2232,6 +2243,21 @@ class Runtime extends EventEmitter {
      * Start all threads that start with the green flag.
      */
     greenFlag () {
+        this.stopAll();
+        this.emit(Runtime.PROJECT_START);
+        this.ioDevices.clock.resetProjectTimer();
+        this.targets.forEach(target => target.clearEdgeActivatedValues());
+        // Inform all targets of the green flag.
+        for (let i = 0; i < this.targets.length; i++) {
+            this.targets[i].onGreenFlag();
+        }
+        this.startHats('event_whenflagclicked');
+    }
+
+    /**
+     * Start all threads that start with the green flag in storyboard mode.
+     */
+    greenFlagStoryboard () {
         this.stopAll();
         this.emit(Runtime.PROJECT_START);
         this.ioDevices.clock.resetProjectTimer();

@@ -25,6 +25,7 @@ const {loadSound} = require('./import/load-sound.js');
 const {serializeSounds, serializeCostumes} = require('./serialization/serialize-assets');
 require('canvas-toBlob');
 const fetch = require('node-fetch');
+const parsePseudoCode = require('./engine/pseudocode-parser');
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -94,8 +95,8 @@ class VirtualMachine extends EventEmitter {
             title: 'Äpfel sammeln',
             description: 'Bewege die Schale und sammle die Äpfel ein. Die roten Äpfel sind geben einen Punkt, und die goldenen Äpfel geben zwei Punkte. Bei 10 Punkten hat mab gewonnen',
             globalVariables: ['Punkte'],
-            descriptionFeedback: '',
-            globalVariablesFeedback: ''
+            descriptionFeedback: {text: '', color: 'NeedsImprovement'},
+            globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
         }; // for testing purposes
 
         this.feedbacks = [];
@@ -216,9 +217,16 @@ class VirtualMachine extends EventEmitter {
 
     /**
      * "Green flag" handler - start all threads starting with a green flag.
+     * @param {number} tabindex - The index of the tab to determine which green flag handler to use.
      */
-    greenFlag () {
-        this.runtime.greenFlag();
+    greenFlag (tabindex) {
+        if (tabindex === 0) {
+            this.runtime.storyboardMode = true;
+            this.runtime.greenFlagStoryboard();
+        } else {
+            this.runtime.storyboardMode = false;
+            this.runtime.greenFlag();
+        }
     }
 
     /**
@@ -1105,10 +1113,10 @@ The output should look like this, but have the sprite names from the project and
                     "name": "Behavior name 1",
                     "feedback": {
                         "description": "NeedsImprovement",
-                        "variables": "Incomplete",
+                        "variables": "Complete",
                         "sounds": "Complete",
                         "costumes": "Complete",
-                        "relatedSprites": "Complete"
+                        "relatedSprites": "Incomplete"
                     }
                 } 
             ]
@@ -1123,7 +1131,7 @@ The output should look like this, but have the sprite names from the project and
                         "variables": "Incomplete",
                         "sounds": "Complete",
                         "costumes": "Complete",
-                        "relatedSprites": "Incomplete"
+                        "relatedSprites": "Complete"
                     }
                 } 
             ]
@@ -1142,7 +1150,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         const prompt = this.understandingFeedbackPrompt(this.getLocale().language);
         console.log(new Date().toISOString());
         console.log(prompt);
-        const response = await this.callOllama(prompt);
+        const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
         console.log(response);
         
@@ -1153,7 +1161,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
             response
         });
         this.emitTargetsUpdate();
-        return response.response;
+        return response;
     }
 
     async getPlanningFeedback () {
@@ -1161,10 +1169,10 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         const prompt = this.planningFeedbackPrompt(this.getLocale().language);
         console.log(new Date().toISOString());
         // console.log(prompt);
-        const response = await this.callOllama(prompt);
+        const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
 
-        const returnA = response ? response.response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
+        const returnA = response ? response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
 
         this.feedbacks.push({
             type: 'planning',
@@ -1177,10 +1185,10 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         const statusPrompt = this.statusfeedbackPrompt(returnA);
         console.log(new Date().toISOString());
         console.log(statusPrompt);
-        const statusResponse = await this.callOllama(statusPrompt);
+        const statusResponse = await this.callGPT(statusPrompt);
         console.log(new Date().toISOString());
 
-        const status = statusResponse ? statusResponse.response.match(/{[\s\S]*}/)[0] : 'No status response from the AI model.';
+        const status = statusResponse ? statusResponse.match(/{[\s\S]*}/)[0] : 'No status response from the AI model.';
         console.log(status);
 
 
@@ -1189,8 +1197,8 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
             const returnStatus = JSON.parse(status);
 
             if (responseObject) {
-                this.storyboardOverall.descriptionFeedback = responseObject.overallDescriptionFeedback;
-                this.storyboardOverall.globalVariablesFeedback = responseObject.globalVariablesFeedback;
+                this.storyboardOverall.descriptionFeedback.text = responseObject.overallDescriptionFeedback;
+                this.storyboardOverall.globalVariablesFeedback.text = responseObject.globalVariablesFeedback;
 
                 // matching feedback to sprites and behaviors
                 this.runtime.targets.forEach(target => {
@@ -1209,6 +1217,10 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
                 });
 
                 if (returnStatus) {
+
+                    this.storyboardOverall.descriptionFeedback.color = returnStatus.overallDescriptionFeedback;
+                    this.storyboardOverall.globalVariablesFeedback.color = returnStatus.globalVariablesFeedback;
+
                     this.runtime.targets.forEach(target => {
                         if (!Array.isArray(target.sprite.behaviors)) return;
                         target.sprite.behaviors.forEach(behavior => {
@@ -1226,7 +1238,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
                 }
 
                 this.emitTargetsUpdate();
-                console.log(this.runtime.targets);
+                console.log(this.runtime.targets.map(target => target.sprite));
                 return 'parsable feedback';
             }
             console.error('Feedback not found in response:', responseObject);
@@ -1241,6 +1253,48 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
     async callOllama (feedbackPrompt) {
         const response = await fetch('http://127.0.0.1:3001/api/ollama', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: feedbackPrompt
+            })
+        });
+
+        // const text = await response.text();
+        // return text;
+        const responseJson = await response.json();
+        return responseJson.response;
+    }
+
+    async callOllamaStream (feedbackPrompt) {
+        const response = await fetch('http://127.0.0.1:3001/api/ollama/stream', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({prompt: feedbackPrompt})
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullText = '';
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            fullText += chunk;
+            // Optionally emit progress if you want
+        }
+
+        return {response: fullText};
+    }
+
+    async callGPT (feedbackPrompt) {
+        const response = await fetch('http://127.0.0.1:3001/api/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1319,6 +1373,8 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
     `.trim();
     }
 
+    // more examples to create correct pseudo code: for conditions and so on.
+
     /**
      * Parses the description of the project and converts it to blocks.
      * @returns {string} The prompt for translation to blocks.
@@ -1328,16 +1384,27 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         console.log(new Date().toISOString());
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
+        const feedbackResponse = response.response;
+        console.log(feedbackResponse);
 
         // this.runtime.createNewGlobalVariable(this.storyboardOverall.globalVariables);
-        this.runtime.targets.forAll(target => {
-            const behaviorBlocks = this.extractBehaviorBlocks(response, target.getName());
+        this.runtime.targets.forEach(target => {
+            const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
 
-            // per block group create the blocks ?
-            // behaviorBlocks.forEach(block => {
-            //     target.sprite.storyboardBlocks.createBlock(this.runtime);
-            // });
+            // per block group parse the pseudo code to create blocks
+            behaviorBlocks.forEach(blocks => {
+                console.log(blocks);
+                const scripts = parsePseudoCode(blocks);
+                for (const script of scripts) {
+                    if (script.length === 0) continue;
+                    console.log(script);
+                    target.storyboardBlocks.createBlock(script);
+                }
+            });
         });
+
+        // to update the workspace view
+        // this.vm.runtime.requestRedraw();
 
         return response;
     }
@@ -1348,11 +1415,12 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
         if (!match) return [];
 
-        const sectionContent = match[1].trim();
-        return sectionContent
-            .split(/\n\s*\n/) // split on blank lines
+        const sectionContent = match[1].trim().split(/\n\s*\n/) // split on blank lines
             .map(p => p.trim())
             .filter(p => p.length > 0);
+
+        if (sectionContent[0].toLowerCase().includes('no behavior')) return [];
+        return sectionContent;
     }
 
     copyStoryboardToComments () {

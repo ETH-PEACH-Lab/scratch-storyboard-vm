@@ -45,6 +45,10 @@ class Target extends EventEmitter {
          */
         this.blocks = blocks;
         /**
+         * The targets' blocks based on the storyboard
+         */
+        this.storyboardBlocks = new Blocks(runtime);
+        /**
          * Dictionary of variables and their values for this target.
          * Key is the variable id.
          * @type {Object.<string,*>}
