@@ -26,6 +26,7 @@ const {serializeSounds, serializeCostumes} = require('./serialization/serialize-
 require('canvas-toBlob');
 const fetch = require('node-fetch');
 const parsePseudoCode = require('./engine/pseudocode-parser');
+const pseudoOpcode = require('./engine/pseudo-opcode').default;
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -1367,6 +1368,12 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
     when @greenFlag clicked
     go to x: (-180) y: (-130)
     set [Punkte v] to [0]
+
+    Here is the complete list of pseudo code blocks that can be used to create the Scratch 3.0 project:
+    ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
+        opcode: block.opcode,
+        pseudocode: block.pseudocode
+    })), null, 2)}
 
 
     Translate the project description and sprite behaviors to pseudo code for each sprite, using the provided blocks. The pseudo code should be in the same format as the example above.
