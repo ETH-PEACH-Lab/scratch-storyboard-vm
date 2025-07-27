@@ -101,7 +101,12 @@ const parseCondition = function (line) {
         });
     }
 
-    if (line.startsWith('touching ')) {
+    if (line.startsWith('touching color ')) {
+        const target = line.match(/touching color \((.+)\)/);
+        return createBlock('sensing_touchingcolor', {
+            COLOR: wrapInput(target[1]),
+        });
+    } else if (line.startsWith('touching ')) {
         const target = line.match(/touching \[(.*)\]/)[1];
         return createBlock('sensing_touchingobject', {
             TOUCHINGOBJECTMENU: [1, target]
@@ -114,6 +119,23 @@ const parseCondition = function (line) {
             OPERAND: parseCondition(inner)
         });
     }
+
+    if (line.includes(' contains ')) {
+        const target = line.match(/\((.+)\) contains \((.+)\)\?/);
+        return createBlock('operator_contains', {
+            TEXT: wrapInput(target[1]),
+            SUBSTRING: wrapInput(target[2])
+        });
+    }
+
+    if (line.includes(' is touching color ')) {
+        const target = line.match(/color \((.+)\) is touching color \((.+)\)/);
+        return createBlock('sensing_coloristouchingcolor', {
+            COLOR1: wrapInput(target[1]),
+            COLOR2: wrapInput(target[2])
+        });
+    }
+
 };
 
 const blockPatterns = [
@@ -129,6 +151,13 @@ const blockPatterns = [
         opcode: 'looks_think',
         inputs: match => ({
             MESSAGE: wrapInput(match[1])
+        })
+    },
+    {
+        match: /^switch costume to \[(.+?)\]$/,
+        opcode: 'looks_switchcostumeto',
+        inputs: match => ({
+            COSTUME: [1, match[1]]
         })
     },
     {
@@ -152,6 +181,34 @@ const blockPatterns = [
         })
     },
     {
+        match: /^set x to \((.+?)\)$/,
+        opcode: 'motion_setx',
+        inputs: match => ({
+            X: [1, parseFloat(match[1])]
+        })
+    },
+    {
+        match: /^set y to \((.+?)\)$/,
+        opcode: 'motion_sety',
+        inputs: match => ({
+            Y: [1, parseFloat(match[1])]
+        })
+    },
+    {
+        match: /^change x by \((.+?)\)$/,
+        opcode: 'motion_changex',
+        inputs: match => ({
+            X: [1, parseFloat(match[1])]
+        })
+    },
+    {
+        match: /^change y by \((.+?)\)$/,
+        opcode: 'motion_changey',
+        inputs: match => ({
+            Y: [1, parseFloat(match[1])]
+        })
+    },
+    {
         match: /^go to \[(.+?)\]$/, // go to [random position]
         opcode: 'motion_goto',
         inputs: match => ({
@@ -159,7 +216,15 @@ const blockPatterns = [
         })
     },
     {
-        match: /^move \((.+?)\) steps$/,
+        match: /^go to x: \\((.+)\\) y: \\((.+)\\)$/, // go to x: (100) y: (200)
+        opcode: 'motion_gotoxy',
+        inputs: match => ({
+            X: [1, match[1]],
+            Y: [1, match[2]]
+        })
+    },
+    {
+        match: /^move \((.+)\) steps$/,
         opcode: 'motion_movesteps',
         inputs: match => ({
             STEPS: wrapInput(match[1])
@@ -207,12 +272,54 @@ const blockPatterns = [
         opcode: 'control_delete_this_clone'
     },
     {
-        match: /^switch costume to \[(.+?)\]$/,
-        opcode: 'looks_switchcostumeto',
+        match: /^stop ((all|this script|other scripts in sprite))$/,
+        opcode: 'control_stop',
         inputs: match => ({
-            COSTUME: [1, match[1]]
+            STOP_OPTION: ["all", match[1]]
         })
-    }
+    },
+    {
+        match: /^wait \((.+?)\) seconds$/,
+        opcode: 'control_wait',
+        inputs: match => ({
+            DURATION: [1, parseFloat(match[1])]
+        })
+    },
+    {
+        match: /^wait until <(.+?)>$/,
+        opcode: 'control_wait_until',
+        inputs: match => ({
+            CONDITION: [2, parseCondition(match[1])]
+        })
+    },
+    {
+        match: /^stop all sounds$/,
+        opcode: 'sound_stopallsounds'
+    },
+    {
+        match: /^play sound \[(.+?) v\]$/,
+        opcode: 'sound_play',
+        inputs: match => ({
+            SOUND_MENU: [1, match[1]] // match[1] actually id of child: sound_sounds_menu child with name of the sound
+        })
+    },
+    {
+        match: /^play sound \\((.+) v\\) until done/,
+        opcode: 'sound_playuntildone',
+        inputs: match => ({
+            SOUND_MENU: [1, match[1]] // sound_sounds_menu child with name of the sound
+        })
+    },
+    {
+        match: /hide/,
+        opcode: 'looks_hide',
+        inputs: match => ({})
+    },
+    {
+        match: /show/,
+        opcode: 'looks_show',
+        inputs: match => ({})
+    },
 ];
 
 /**
@@ -230,128 +337,8 @@ const parsePseudoCode = function (code) {
     let matched = false;
 
     for (const line of lines) {
-        if (line.startsWith('when')) {
-            if (currentScript) scripts.push(currentScript);
-            currentScript = {
-                topBlock: generateId(),
-                blocks: {}
-            };
-
-            const id = currentScript.topBlock;
-            currentScript.blocks[id] = createBlock('event_whenflagclicked', {}, {}, {id}, {
-                shadow: false,
-                topLevel: true,
-                x: 100,
-                y: 150
-            });
-            matched = true;
-        } else if (line === 'forever') {
-            const id = generateId();
-            const block = createBlock('control_forever', {}, {}, {id});
-            stack.push({id, block, children: []});
-            matched = true;
-        } else if (line.startsWith('if')) {
-            if (line.match(/if\s*<(.+?)>\s*then/)) {
-                const condition = line.match(/if\s*<(.+?)>\s*then/)[1]; // check this property
-                const conditionBlock = parseCondition(condition);
-                const id = generateId();
-                const block = createBlock('control_if', {
-                    CONDITION: [2, conditionBlock]
-                }, {}, {id});
-                stack.push({id, block, children: []});
-                matched = true;
-            } else {
-                console.warn(`Unrecognized if condition: "${line}"`);
-                matched = false;
-            }
-        } else if (line.startsWith('wait until')) {
-            const condition = line.match(/wait until\s*<(.+?)>/)[1];
-            const conditionBlock = parseCondition(condition);
-            const id = generateId();
-            currentScript.blocks[id] = createBlock('control_wait_until', {
-                CONDITION: [2, conditionBlock]
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('change') || line.startsWith('set')) {
-            const match = line.match(/(change|set) \[(.+?) v\] (to|by) \[(.+?)\]/);
-            if (match) {
-                const [, action, variable, _operation, value] = match;
-                const opcode = (action === 'change') ? 'data_changevariableby' : 'data_setvariableto';
-                const id = generateId();
-                currentScript.blocks[id] = createBlock(opcode, {
-                    VALUE: [1, parseFloat(value)]
-                }, {
-                    VARIABLE: [variable, variable]
-                }, {id});
-                stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-                matched = true;
-            }
-        } else if (line.startsWith('key')) {
-            // handled inside if
-        } else if (line.startsWith('touching')) {
-            // handled inside if
-        } else if (line.startsWith('go to [random position')) {
-            const id = generateId();
-            currentScript.blocks[id] = createBlock('motion_goto', {
-                TO: [1, 'random position']
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('set x to') || line.startsWith('set y to')) {
-            const match = line.match(/set (x|y) to \((.+?)\)/);
-            const axis = match[1];
-            const value = parseFloat(match[2]);
-            const opcode = axis === 'x' ? 'motion_setx' : 'motion_sety';
-            const id = generateId();
-            currentScript.blocks[id] = createBlock(opcode, {
-                [axis.toUpperCase()]: [1, value]
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('change x by') || line.startsWith('change y by')) {
-            const match = line.match(/change (x|y) by \((.+?)\)/);
-            const axis = match[1];
-            const value = parseFloat(match[2]);
-            const opcode = axis === 'x' ? 'motion_changexby' : 'motion_changeyby';
-            const id = generateId();
-            currentScript.blocks[id] = createBlock(opcode, {
-                [axis.toUpperCase()]: [1, value]
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('wait (')) {
-            const match = line.match(/wait \((.+?)\) seconds/);
-            const value = parseFloat(match[1]);
-            const id = generateId();
-            currentScript.blocks[id] = createBlock('control_wait', {
-                DURATION: [1, value]
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line === 'hide' || line === 'show') {
-            const opcode = line === 'hide' ? 'looks_hide' : 'looks_show';
-            const id = generateId();
-            currentScript.blocks[id] = createBlock(opcode, {}, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('play sound')) {
-            const match = line.match(/play sound \[(.+?) v\] until done/);
-            const sound = match[1];
-            const id = generateId();
-            currentScript.blocks[id] = createBlock('sound_playuntildone', {}, {
-                SOUND_MENU: [sound, sound]
-            }, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line.startsWith('stop')) {
-            const id = generateId();
-            currentScript.blocks[id] = createBlock('control_stop', {
-                STOP_OPTION: ['all', 'all']
-            }, {}, {id});
-            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
-        } else if (line === 'end') {
+        matched = false;
+        if (line === 'end') {
             if (matched) {
                 const context = stack.pop();
                 const childBlocks = connectBlocks(context.children);
@@ -365,8 +352,136 @@ const parsePseudoCode = function (code) {
                 console.warn('At least one line did not match before "end"');
                 return [];
             }
+            if (!matched) {
+                console.warn(`Unhandled line: "${line}"`);
+            }
+        } else if (line.startsWith('when')) {
+            if (currentScript) scripts.push(currentScript);
+            currentScript = {
+                topBlock: generateId(),
+                blocks: {}
+            };
+
+            const id = currentScript.topBlock;
+            let blockType = '';
+            let fields = {};
+            let inputs = {};
+
+            // Match different kinds of 'when' blocks
+            if (line === 'when @greenFlag clicked' || line === 'when green flag clicked') {
+                blockType = 'event_whenflagclicked';
+            } else if (line === 'when this sprite clicked') {
+                blockType = 'event_whenthisspriteclicked';
+            } else if (/when backdrop switches to \[(.+?)\]/.test(line)) {
+                const match = line.match(/when backdrop switches to \[(.+?)\]/);
+                blockType = 'event_whenbackdropswitchesto';
+                fields = { BACKDROP: [match[1], null] };
+            } else if (/when I receive \[(.+?)\]/.test(line)) {
+                const match = line.match(/when I receive \[(.+?)\]/);
+                blockType = 'event_whenbroadcastreceived';
+                fields = { BROADCAST_OPTION: [match[1], null] };
+            } else if (/when \[(.+?)\] key pressed/.test(line)) {
+                const match = line.match(/when \[(.+?)\] key pressed/);
+                blockType = 'event_whenkeypressed';
+                fields = { KEY_OPTION: [match[1], null] };
+            } else if (/when \[(.+?)\] > \((.+?)\)/.test(line)) {
+                const match = line.match(/when \[(.+?)\] > \((.+?)\)/);
+                blockType = 'event_whengreaterthan';
+                fields = { WHENGREATERTHANMENU: [match[1], null] };
+                inputs = { VALUE: [1, [10, match[2]]] }; // assuming type 10 is number literal
+            } else {
+                throw new Error(`Unsupported 'when' block: ${line}`);
+            }
+
+            currentScript.blocks[id] = createBlock(blockType, fields, inputs, { id }, {
+                shadow: false,
+                topLevel: true,
+                x: 100,
+                y: 150
+            });
+            matched = true;
+        } else if (line === 'forever') {
+            const id = generateId();
+            const block = createBlock('control_forever', {}, {}, { id });
+            stack.push({ id, block, children: [] });
+            matched = true;
+        } else if (/^repeat\s*\((.+?)\)/.test(line)) {
+            const match = line.match(/^repeat\s*\((.+?)\)/);
+            const times = match[1];
+            const id = generateId();
+            const block = createBlock('control_repeat', { TIMES: [1, [10, times]] }, {}, { id });
+            currentScript.blocks[id] = block;
+            stack.push({ id, block, children: [] });
+            matched = true;
+        } else if (/^repeat until\s*<(.+?)>/.test(line)) {
+            const match = line.match(/^repeat until\s*<(.+?)>/);
+            const conditionText = match[1];
+            const id = generateId();
+            const conditionBlock = parseCondition(conditionText);
+            const block = createBlock('control_repeat_until', {
+                CONDITION: [2, conditionBlock]
+            }, {}, { id });
+            currentScript.blocks[id] = block;
+            stack.push({ id, block, children: [] });
+            matched = true;
+        } else if (line.startsWith('if')) {
+            if (line.match(/if\s*<(.+?)>\s*then/)) {
+                const condition = line.match(/if\s*<(.+?)>\s*then/)[1];
+                const conditionBlock = parseCondition(condition);
+                const conditionId = generateId();
+                const id = generateId();
+                const block = createBlock('control_if', {
+                    CONDITION: [2, conditionId]
+                }, {}, { id });
+                currentScript.blocks[id] = block;
+                currentScript.blocks[conditionId] = conditionBlock;
+                stack.push({ id, block, children: [] });
+                matched = true;
+            } else {
+                console.warn(`Unrecognized if condition: "${line}"`);
+                matched = false;
+            }
+        } else if (line.startsWith('else')) {
+            if (stack.length > 0) {
+                const context = stack[stack.length - 1];
+                if (context.block.opcode === 'control_if') {
+                    // Create if-else block
+                    const id = generateId();
+                    const ifElseBlock = createBlock('control_if_else', {}, {}, { id });
+
+                    // Transfer the CONDITION and SUBSTACK from the original 'if'
+                    ifElseBlock.inputs.CONDITION = context.block.inputs.CONDITION;
+                    ifElseBlock.inputs.SUBSTACK = context.block.inputs.SUBSTACK;
+
+                    // Replace the old block in the parent context
+                    const parentContext = stack[stack.length - 1];
+                    parentContext.children = parentContext.children.map(child =>
+                        child === context.block ? ifElseBlock : child
+                    );
+
+                    // Push context to fill SUBSTACK2 (the else body)
+                    stack.push({
+                        id,
+                        block: ifElseBlock,
+                        children: []
+                    });
+                    matched = true;
+                } else {
+                    console.warn('Else without matching if block');
+                    matched = false;
+                }
+            } else {
+                console.warn('Else without any if block in stack');
+                matched = false;
+            }
+        } else if (line.startsWith('go to [random position')) {
+            const id = generateId();
+            currentScript.blocks[id] = createBlock('motion_goto', {
+                TO: [1, 'random position']
+            }, {}, { id });
+            stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
+            matched = true;
         } else {
-            matched = false;
             for (const pattern of blockPatterns) {
                 const match = line.match(pattern.match);
                 if (match) {
@@ -375,22 +490,38 @@ const parsePseudoCode = function (code) {
                     const inputs = pattern.inputs ? pattern.inputs(match) : {};
                     const fields = pattern.fields ? pattern.fields(match) : {};
 
-                    currentScript.blocks[id] = createBlock(opcode, inputs, fields, {id}, {shadow: false,
-                        topLevel: false});
+                    currentScript.blocks[id] = createBlock(opcode, inputs, fields, { id }, {
+                        shadow: false,
+                        topLevel: false
+                    });
 
                     stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
                     matched = true;
                     break;
                 }
             }
-
-            if (!matched) {
-                console.warn(`Unhandled line: "${line}"`);
-            }
         }
     }
 
-    if (currentScript) scripts.push(currentScript);
+    if (currentScript) {
+        // Connect top-level blocks outside any control block
+        const topLevelBlocks = Object.values(currentScript.blocks)
+            .filter(b => !b.parent && !b.topLevel && !b.shadow);
+
+        const connectedTopLevel = connectBlocks(topLevelBlocks);
+        for (const block of connectedTopLevel) {
+            currentScript.blocks[block.id] = block;
+        }
+
+        // Attach first to event block
+        const topEvent = currentScript.blocks[currentScript.topBlock];
+        if (topLevelBlocks.length > 0) {
+            topEvent.next = topLevelBlocks[0].id;
+            topLevelBlocks[0].parent = topEvent.id;
+        }
+
+        scripts.push(currentScript);
+    }
     return scripts;
 };
 

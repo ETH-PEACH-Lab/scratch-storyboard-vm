@@ -344,8 +344,8 @@ const pseudoOpcode = {
     },
     "sound_playuntildone": {
         "opcode": "sound_playuntildone",
-        "pseudocode": "play sound (SOUND) until done",   
-        "regex": "^play sound \\((.+)\\) until done$",   
+        "pseudocode": "play sound (SOUND v) until done",
+        "regex": "^play sound \\((.+) v\\) until done$",
         "category": "sound",
         "blockType": "command",
         "inputs": {
