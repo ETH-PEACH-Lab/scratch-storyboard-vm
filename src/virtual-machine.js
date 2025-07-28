@@ -87,9 +87,9 @@ class VirtualMachine extends EventEmitter {
         // this.storyboardOverall = {
         //     title: '',
         //     description: '',
-        //     globalVariables: '',
-        //     descriptionFeedback: '',
-        //     globalVariablesFeedback: ''
+        //     globalVariables: [],
+        //     descriptionFeedback: {text: '', color: 'NeedsImprovement'},
+        //     globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
         // };
 
         this.storyboardOverall = {
@@ -220,8 +220,8 @@ class VirtualMachine extends EventEmitter {
      * "Green flag" handler - start all threads starting with a green flag.
      * @param {number} tabindex - The index of the tab to determine which green flag handler to use.
      */
-    greenFlag (tabindex) {
-        if (tabindex === 0) {
+    greenFlag (tabindex=0) {
+        if (tabindex === 1) {
             this.runtime.storyboardMode = true;
             this.runtime.greenFlagStoryboard();
         } else {
@@ -990,7 +990,7 @@ ${this.referenceProjectPseudoCodeString}
 Everything below is the students' project description and behaviors.
 Project title: ${this.storyboardOverall.title}
 Overall project description: ${this.storyboardOverall.description}
-Global variables comma-separated: ${this.storyboardOverall.globalVariables}
+A list of global variables: ${this.storyboardOverall.globalVariables}
 
 The behavior names for each sprite:
 ${JSON.stringify(this.runtime.targets.map(target => ({
@@ -1169,7 +1169,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
         const prompt = this.planningFeedbackPrompt(this.getLocale().language);
         console.log(new Date().toISOString());
-        // console.log(prompt);
+        console.log(prompt);
         const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
 
@@ -1321,63 +1321,200 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         this.emitTargetsUpdate();
     }
 
-    setStoryboardGlobalVariables (variables) {
-        this.storyboardOverall.globalVariables = variables;
+    setGlobalVariable (variable, index) {
+        this.storyboardOverall.globalVariables[index] = variable;
         this.emitTargetsUpdate();
     }
 
-    translationPrompt () {
+    addGlobalVariable () {
+        this.storyboardOverall.globalVariables.push('');
+        this.emitTargetsUpdate();
+    }
+
+    rewritingPrompt (language = this.getLocale().language, behaviorIndex) {
+        return `You are an assistant that rewrites students project descriptions of a sprite's behavior to a more detailed. 
+        Try to guess what the students mean. This description will be used to translate into a pseudo code of executable Scratch 3.0 blocks.
+        Here is the one behavior description for the sprite ${this.editingTarget.getName()}:
+        ${this.editingTarget.sprite.behaviors[behaviorIndex].description}
+
+        You can start with 'oh you mean' or 'oh du meinst' if ${language === 'de'} and then rewrite the description.
+    `;
+    }
+
+    goodEnoughPrompt (language = this.getLocale().language, behaviorIndex) {
+        return `You are an expert in programming education. Given a student's natural language plan for a Scratch project, your job is to judge whether this plan is specific enough to generate Scratchblocks without additional clarification.
+The plan should include concrete, observable actions (e.g., motion, events, conditions, interactions) and ideally specify agents, targets, and conditions.
+Please return:
+is_specific: true or false
+explanation: a short sentence explaining your reasoning
+clarification: as the student to clarify the plan if it is not specific enough.
+description: the original student plan rewritten if the is_specific is true.
+Student plan:
+ "${this.editingTarget.sprite.behaviors[behaviorIndex].description}"
+
+If an example plan is
+Student plan:
+"The bowl should pick up the red apple."
+Then the response should be
+{
+  "is_specific": false,
+  "explanation": "The plan lacks concrete actions like movement direction, sensing, or interaction triggers; 'pick up' is ambiguous in Scratch.",
+  "clarification": "Please specify how the bowl should pick up the apple, e.g., 'move to the apple and use a grabbing action'.",
+  "description": ""
+}
+
+if the student plan is good enough, then the response should be
+{
+  "is_specific": true,
+  "explanation": "The plan includes specific actions and conditions that can be directly translated into Scratch blocks.",
+  "clarification": "",
+  "description": "Move the bowl left and right until it touches the red apple, then hide the apple."
+}
+  
+Here are some more examples of too vague and good plans:
+
+too vague plans:
+"The bowl should pick up the red apple."
+"The cat should get to the finish line."
+"Make the character dance when it wins."
+"It should look happy when things go well."
+"The cat kills the enemy."
+
+good plans:
+"Move the bowl to the right until it touches the red apple, then hide the apple."
+"When the green flag is clicked, make the sprite say 'Hello!' for 2 seconds."
+"If the score is greater than 10, play a sound and show the you win sprite."
+"Repeat 5 times: move 10 steps, then turn 15 degrees."
+"If the character is touching the red apple, change score by 1 and hide the apple."
+`;
+    }
+
+    async getBehaviorFeedback (behaviorIndex) {
+        const prompt = this.goodEnoughPrompt(this.getLocale().language, behaviorIndex);
+        console.log(new Date().toISOString());
+        const response = await this.callGPT(prompt);
+        console.log(new Date().toISOString());
+        console.log(response);
+        const matches = response.match(/\{[^{}]*\}/g);
+        if (!matches || matches.length === 0) {
+            console.error('No JSON object found in response:', response);
+            return response;
+        }
+        const jsonResponse = matches[0];
+        let responseObject;
+        try {
+            responseObject = JSON.parse(jsonResponse);
+            this.editingTarget.sprite.behaviors[behaviorIndex].is_specific = responseObject.is_specific;
+            this.editingTarget.sprite.behaviors[behaviorIndex].clarification = responseObject.clarification;
+            this.editingTarget.sprite.behaviors[behaviorIndex].explanation = responseObject.explanation;
+            this.editingTarget.sprite.behaviors[behaviorIndex].generatedDescription = responseObject.description;
+            this.emitTargetsUpdate();
+        } catch (e) {
+            console.error('Error parsing JSON response:', e);
+            return response;
+        }
+    }
+
+    pseudocodePrompt (behaviorIndex) {
+        return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
+Here is a behavior description of sprite ${this.editingTarget.getName()}:
+${this.editingTarget.sprite.behaviors[behaviorIndex].generatedDescription}
+    
+Here is the complete list of pseudo code blocks that can be used to create the pseudo code for this behavior:
+${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
+    opcode: block.opcode,
+    pseudocode: block.pseudocode
+})), null, 2)}
+
+Do not write any text before or after the pseudo code, just the pseudo code blocks in the format of the example below.
+Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
+
+when [space v] key pressed
+repeat (10)
+    change y by (10)
+end
+repeat (10)
+    change y by (-10)
+end
+change [Punkte v] by (1)
+
+when @greenFlag clicked
+go to x: (-180) y: (-130)
+set [Punkte v] to [0]
+`;
+    } 
+
+    async generateBlocks (behaviorIndex) {
+        const prompt = this.pseudocodePrompt(behaviorIndex);
+        console.log(new Date().toISOString());
+        const response = await this.callOllama(prompt);
+        console.log(new Date().toISOString());
+        const blocks = response.response;
+        console.log(blocks);
+
+        const scripts = parsePseudoCode(blocks);
+        for (const script of scripts) {
+            if (script.length === 0) continue;
+            console.log(script);
+            target.storyboardBlocks.createBlock(script);
+        }
+    }
+
+    translationPrompt (language = this.getLocale().language) {
         return `You are an assistant that translates project descriptions and sprite behaviors to a Scratch 3.0 project json.
 
-    Here is the project name:
-    ${this.storyboardOverall.name}
+Here is the project title:
+${this.storyboardOverall.title}
 
-    Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
-    ${this.storyboardOverall.description}
+Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
+${this.storyboardOverall.description}
 
-    Here are the global variables comma-separated that might be used for the win/loss conditions:
-    ${this.storyboardOverall.globalVariables}
+Here are the global variables comma-separated that might be used for the win/loss conditions:
+${this.storyboardOverall.globalVariables}
 
+Here are the list of behaviors (movement, interaction, control) for each sprite:
+${JSON.stringify(this.runtime.targets.map(target => ({
+    name: target.getName(),
+    behaviors: target.sprite.behaviors.map(behavior => ({
+        name: behavior.name,
+        description: behavior.description,
+        variables: behavior.variables,
+        sounds: behavior.sounds,
+        costumes: behavior.costumes,
+        relatedSprites: behavior.relatedSprites
+    }))
+})))}
 
-    Here are the list of behaviors (movement, interaction, control) for each sprite:
-    ${JSON.stringify(this.runtime.targets.map(target => ({
-        name: target.getName(),
-        behaviors: target.sprite.behaviors.map(behavior => ({
-            name: behavior.name,
-            description: behavior.description,
-            variables: behavior.variables,
-            sounds: behavior.sounds,
-            costumes: behavior.costumes,
-            relatedSprites: behavior.relatedSprites
-        }))
-    })))}
+Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
 
-    Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
+Here is the complete list of pseudo code blocks that can be used to create the Scratch 3.0 project:
+${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
+    opcode: block.opcode,
+    pseudocode: block.pseudocode
+})), null, 2)}
 
-    Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
+Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
 
-    when [space v] key pressed::event
-    repeat (10)
-        change y by (10)
-    end
-    repeat (10)
-        change y by (-10)
-    end
-    change [Punkte v] by (1)
+**Cat**
 
-    when @greenFlag clicked
-    go to x: (-180) y: (-130)
-    set [Punkte v] to [0]
+when [space v] key pressed
+repeat (10)
+    change y by (10)
+end
+repeat (10)
+    change y by (-10)
+end
+change [Punkte v] by (1)
 
-    Here is the complete list of pseudo code blocks that can be used to create the Scratch 3.0 project:
-    ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-        opcode: block.opcode,
-        pseudocode: block.pseudocode
-    })), null, 2)}
+when @greenFlag clicked
+go to x: (-180) y: (-130)
+set [Punkte v] to [0]
 
-
-    Translate the project description and sprite behaviors to pseudo code for each sprite, using the provided blocks. The pseudo code should be in the same format as the example above.
-    `.trim();
+The description of the project is in ${language}. If it is not English be aware to translate it, especially the sprite names.
+Translate the project description and sprite behaviors to pseudo code for each sprite, using the provided blocks. 
+The pseudo must be in the same format as the example above. Between every new group of blocks starting with when there should be a new line.
+Variables and objects also sprites, costumes and sounds should always be in round brackets () and no need to put the code in backticks or any other formatting.
+`.trim();
     }
 
     // more examples to create correct pseudo code: for conditions and so on.
@@ -1397,21 +1534,22 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         // this.runtime.createNewGlobalVariable(this.storyboardOverall.globalVariables);
         this.runtime.targets.forEach(target => {
             const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
-
+            console.log(`Behavior blocks for ${target.getName()}:`, behaviorBlocks);
             // per block group parse the pseudo code to create blocks
-            behaviorBlocks.forEach(blocks => {
-                console.log(blocks);
-                const scripts = parsePseudoCode(blocks);
-                for (const script of scripts) {
-                    if (script.length === 0) continue;
-                    console.log(script);
-                    target.storyboardBlocks.createBlock(script);
-                }
-            });
+            // behaviorBlocks.forEach(blocks => {
+            //     console.log(blocks);
+            //     const scripts = parsePseudoCode(blocks);
+            //     for (const script of scripts) {
+            //         if (script.length === 0) continue;
+            //         console.log(script);
+            //         target.storyboardBlocks.createBlock(script);
+            //     }
+            // });
+            // console.log(target.storyboardBlocks);
         });
 
         // to update the workspace view
-        // this.vm.runtime.requestRedraw();
+        this.runtime.requestRedraw();
 
         return response;
     }
@@ -1422,12 +1560,33 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
         if (!match) return [];
 
-        const sectionContent = match[1].trim().split(/\n\s*\n/) // split on blank lines
-            .map(p => p.trim())
-            .filter(p => p.length > 0);
+        const section = match[1].trim();
 
-        if (sectionContent[0].toLowerCase().includes('no behavior')) return [];
-        return sectionContent;
+        if (section.toLowerCase().includes('no behavior')) return [];
+
+        // Split into blocks: each starts with "when ..."
+        const blocks = [];
+        const lines = section.split(/\r?\n/);
+        let currentBlock = [];
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('when ')) {
+                if (currentBlock.length > 0) {
+                    blocks.push(currentBlock.join('\n'));
+                }
+                currentBlock = [trimmed];
+            } else if (trimmed.length > 0) {
+                currentBlock.push(trimmed);
+            }
+        }
+
+        // Push last block if any
+        if (currentBlock.length > 0) {
+            blocks.push(currentBlock.join('\n'));
+        }
+
+        return blocks;
     }
 
     copyStoryboardToComments () {
@@ -1436,8 +1595,8 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
             if (target.isSprite()) {
                 target.behaviors.forEach(behavior => {
                     const commentText = `${behavior.name}\n${behavior.description}\n
-Variables: ${behavior.variables.join(', ')}
-Related Sprites: ${behavior.relatedSprites.join(', ')}`;
+${behavior.variables.length > 0 ? 'Variables: ' + behavior.variables.join(', ') : ''}
+${behavior.relatedSprites.length > 0 ? 'Related Sprites: ' + behavior.relatedSprites.join(', ') : ''}`;
                     const index = target.sprite.behaviors.indexOf(behavior);
                     target.createComment(behavior.name, null, commentText, 500, 500 - (index * 250), 250, 200, false);
                 });
