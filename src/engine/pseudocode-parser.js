@@ -77,16 +77,16 @@ const parseCondition = function (line) {
         });
     }
 
-    if (line.includes(' > ')) {
-        const [left, right] = line.split(' > ');
+    if (line.includes(' \> ')) {
+        const [left, right] = line.split(' \> ');
         return createBlock('operator_gt', {
             OPERAND1: wrapInput(left),
             OPERAND2: wrapInput(right)
         });
     }
 
-    if (line.includes(' < ')) {
-        const [left, right] = line.split(' < ');
+    if (line.includes(' \< ')) {
+        const [left, right] = line.split(' \< ');
         return createBlock('operator_lt', {
             OPERAND1: wrapInput(left),
             OPERAND2: wrapInput(right)
@@ -161,7 +161,7 @@ const blockPatterns = [
         })
     },
     {
-        match: /^change \[(.+?) v\] by \[(.+?)\]$/,
+        match: /^change \[(.+?) v\] by \((.+?)\)$/,
         opcode: 'data_changevariableby',
         inputs: match => ({
             VALUE: wrapInput(match[2])
@@ -320,6 +320,13 @@ const blockPatterns = [
         opcode: 'looks_show',
         inputs: match => ({})
     },
+    {
+        match: /([-+]?\d*\.?\d+)/,
+        opcode: 'math_number',
+        fields: match => ({
+            NUM: [1, parseFloat(match[0])]
+        }),
+    }
 ];
 
 /**
@@ -334,12 +341,12 @@ const parsePseudoCode = function (code) {
     const scripts = [];
 
     let currentScript = null;
-    let matched = false;
+    let matched = true;
 
-    for (const line of lines) {
-        matched = false;
+    for (let line of lines) {
+        console.log(line)
         if (line === 'end') {
-            if (matched) {
+            if (matched && stack.length > 0) {
                 const context = stack.pop();
                 const childBlocks = connectBlocks(context.children);
                 currentScript.blocks[context.id] = context.block;
@@ -390,7 +397,8 @@ const parsePseudoCode = function (code) {
                 fields = { WHENGREATERTHANMENU: [match[1], null] };
                 inputs = { VALUE: [1, [10, match[2]]] }; // assuming type 10 is number literal
             } else {
-                throw new Error(`Unsupported 'when' block: ${line}`);
+                console.warn(`Unrecognized when block: "${line}"`);
+                matched = false;
             }
 
             currentScript.blocks[id] = createBlock(blockType, fields, inputs, { id }, {
@@ -403,6 +411,7 @@ const parsePseudoCode = function (code) {
         } else if (line === 'forever') {
             const id = generateId();
             const block = createBlock('control_forever', {}, {}, { id });
+            currentScript.blocks[id] = block;
             stack.push({ id, block, children: [] });
             matched = true;
         } else if (/^repeat\s*\((.+?)\)/.test(line)) {
@@ -485,6 +494,7 @@ const parsePseudoCode = function (code) {
             for (const pattern of blockPatterns) {
                 const match = line.match(pattern.match);
                 if (match) {
+                    console.log(`Matched pattern: ${pattern.opcode}`);
                     const id = generateId();
                     const opcode = typeof pattern.opcode === 'function' ? pattern.opcode(match) : pattern.opcode;
                     const inputs = pattern.inputs ? pattern.inputs(match) : {};
@@ -494,13 +504,14 @@ const parsePseudoCode = function (code) {
                         shadow: false,
                         topLevel: false
                     });
-
                     stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
                     matched = true;
                     break;
-                }
+                }    
+                matched = false; 
             }
         }
+        console.log(matched);
     }
 
     if (currentScript) {

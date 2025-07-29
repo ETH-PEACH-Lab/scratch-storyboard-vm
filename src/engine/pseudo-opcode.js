@@ -29,8 +29,8 @@ const pseudoOpcode = {
     },
     "motion_goto": {
         "opcode": "motion_goto",
-        "pseudocode": "go to (TARGET)",
-        "regex": "^go to \\((.+)\\)$",
+        "pseudocode": "go to (TARGET v)",
+        "regex": "^go to \\((.+) v\\)$",
         "category": "motion",
         "inputs": {
             "TARGET": "string"  // menu: "mouse-pointer", "random position", "sprite name"
@@ -48,8 +48,8 @@ const pseudoOpcode = {
     },
     "motion_glideto": {
         "opcode": "motion_glideto",
-        "pseudocode": "glide (SECS) secs to (TARGET)",
-        "regex": "^glide \\((.+)\\) secs to \\((.+)\\)$",
+        "pseudocode": "glide (SECS) secs to (TARGET v)",
+        "regex": "^glide \\((.+)\\) secs to \\((.+) v\\)$",
         "category": "motion",
         "inputs": {
             "SECS": "number",
@@ -67,19 +67,10 @@ const pseudoOpcode = {
             "Y": "number"
         }
     },
-    "motion_gotofrontback": {
-        "opcode": "motion_gotofrontback",
-        "pseudocode": "go to front/back layer",
-        "regex": "^go to (front|back) layer$",
-        "category": "motion",
-        "inputs": {
-            "LAYER": "string"  // menu: "front", "back"
-        }
-    },
     "motion_pointindirection": {
         "opcode": "motion_pointindirection",
-        "pseudocode": "point in direction (DIRECTION)", 
-        "regex": "^point in direction \\((.+)\\)$",
+        "pseudocode": "point in direction (DIRECTION v)", 
+        "regex": "^point in direction \\((.+) v\\)$",
         "category": "motion",
         "inputs": {
             "DIRECTION": "number"  // angle in degrees
@@ -87,8 +78,8 @@ const pseudoOpcode = {
     },
     "motion_pointtowards": {
         "opcode": "motion_pointtowards",
-        "pseudocode": "point towards (TARGET)",
-        "regex": "^point towards \\((.+)\\)$",
+        "pseudocode": "point towards (TARGET v)",
+        "regex": "^point towards \\((.+) v\\)$",
         "category": "motion",
         "inputs": {
             "TARGET": "string"  // menu: "mouse-pointer", "random position", "sprite name"
@@ -140,8 +131,8 @@ const pseudoOpcode = {
     },
     "motion_setrotationstyle": {
         "opcode": "motion_setrotationstyle",
-        "pseudocode": "set rotation style to (STYLE)",
-        "regex": "^set rotation style to \\((.+)\\)$",
+        "pseudocode": "set rotation style to (STYLE v)",
+        "regex": "^set rotation style to \\((.+) v\\)$",
         "category": "motion",
         "inputs": {
             "STYLE": "string"  // menu: "left-right", "don't rotate", "all around"
@@ -210,8 +201,8 @@ const pseudoOpcode = {
     },
     "looks_switchcostumeto": {
         "opcode": "looks_switchcostumeto",
-        "pseudocode": "switch costume to (COSTUME)",
-        "regex": "^switch costume to \\((.+)\\)$",
+        "pseudocode": "switch costume to (COSTUME v)",
+        "regex": "^switch costume to \\((.+) v\\)$",
         "category": "looks",
         "blockType": "command",
         "inputs": {
@@ -228,13 +219,21 @@ const pseudoOpcode = {
     },
     "looks_switchbackdropto": {
         "opcode": "looks_switchbackdropto",
-        "pseudocode": "switch backdrop to (BACKDROP)",
-        "regex": "^switch backdrop to \\((.+)\\)$",
+        "pseudocode": "switch backdrop to (BACKDROP v)",
+        "regex": "^switch backdrop to \\((.+) v\\)$",
         "category": "looks",
         "blockType": "command",
         "inputs": {
             "BACKDROP": "string"  // menu: backdrop names
         }
+    },
+    "looks_nextbackdrop": {
+        "opcode": "looks_nextbackdrop",     
+        "pseudocode": "next backdrop",
+        "regex": "^next backdrop$",
+        "category": "looks",
+        "blockType": "command",
+        "inputs": {}
     },
     "looks_changesizeby": {
         "opcode": "looks_changesizeby",
@@ -256,18 +255,10 @@ const pseudoOpcode = {
             "SIZE": "number"  // size in percentage
         }
     },
-    "looks_nextbackdrop": {
-        "opcode": "looks_nextbackdrop",     
-        "pseudocode": "next backdrop",
-        "regex": "^next backdrop$",
-        "category": "looks",
-        "blockType": "command",
-        "inputs": {}
-    },
     "looks_changeeffectby": {
         "opcode": "looks_changeeffectby",
-        "pseudocode": "change (EFFECT) effect by (VALUE)",
-        "regex": "^change \\((.+)\\) effect by \\((.+)\\)$",
+        "pseudocode": "change (EFFECT v) effect by (VALUE)",
+        "regex": "^change \\((.+) v\\) effect by \\((.+)\\)$",
         "category": "looks",
         "blockType": "command",
         "inputs": {
@@ -277,8 +268,8 @@ const pseudoOpcode = {
     },
     "looks_seteffectto": {
         "opcode": "looks_seteffectto",
-        "pseudocode": "set (EFFECT) effect to (VALUE)",
-        "regex": "^set \\((.+)\\) effect to \\((.+)\\)$",
+        "pseudocode": "set (EFFECT v) effect to (VALUE)",
+        "regex": "^set \\((.+) v\\) effect to \\((.+)\\)$",
         "category": "looks",
         "blockType": "command",
         "inputs": {
@@ -312,8 +303,18 @@ const pseudoOpcode = {
     },
     "looks_gotofrontback": {
         "opcode": "looks_gotofrontback",
-        "pseudocode": "go to (LAYER) layer",
-        "regex": "^go to \\((front|back)\\) layer$",
+        "pseudocode": "go to (LAYER v) layer",
+        "regex": "^go to \\((front|back) v\\) layer$",
+        "category": "looks",
+        "blockType": "command",
+        "inputs": {
+            "LAYER": "string"  // menu: "front", "back"
+        }
+    },
+    "looks_godirectionlayers": { // don't know correct opcode name
+        "opcode": "looks_godirectionlayers",
+        "pseudocode": "go (DIRECTION v) (STEPS) layers",
+        "regex": "^go \\((forward|backward) v\\) \\((.+)\\) layers$",
         "category": "looks",
         "blockType": "command",
         "inputs": {
@@ -322,26 +323,26 @@ const pseudoOpcode = {
     },
     "looks_costumenumbername": {
         "opcode": "looks_costumenumbername",
-        "pseudocode": "costume # (COSTUME_NUMBER) name",    
-        "regex": "^costume # \\((.+)\\) name$",
+        "pseudocode": "costume (COSTUME_NUMBER v) name",    
+        "regex": "^costume \\((number|name) v\\) name$",
         "category": "looks",
         "blockType": "reporter",        
         "inputs": { 
             "COSTUME_NUMBER": "number"  // costume index starting from 1    
         }
     },
+    "looks_backdropnumbername": {
+        "opcode": "looks_backdropnumbername",
+        "pseudocode": "backdrop (BACKDROP_NUMBER v) name",
+        "regex": "^backdrop \\((number|name) v\\) name$",
+        "category": "looks",
+        "blockType": "reporter",
+        "inputs": {
+            "BACKDROP_NUMBER": "number"  // backdrop index starting from 1
+        }
+    },
 
     // Sound blocks
-    "sound_play": {
-        "opcode": "sound_play",         
-        "pseudocode": "play sound (SOUND) until done",
-        "regex": "^play sound \\((.+)\\) until done$",
-        "category": "sound",
-        "blockType": "command",
-        "inputs": {
-            "SOUND": "string"  // menu: sound names
-        }       
-    },
     "sound_playuntildone": {
         "opcode": "sound_playuntildone",
         "pseudocode": "play sound (SOUND v) until done",
@@ -351,6 +352,16 @@ const pseudoOpcode = {
         "inputs": {
             "SOUND": "string"  // menu: sound names
         }
+    },
+    "sound_play": {
+        "opcode": "sound_play",         
+        "pseudocode": "play sound (SOUND v)",
+        "regex": "^play sound \\((.+) v\\)$",
+        "category": "sound",
+        "blockType": "command",
+        "inputs": {
+            "SOUND": "string"  // menu: sound names
+        }       
     },
     "sound_stopallsounds": {
         "opcode": "sound_stopallsounds",
@@ -362,8 +373,8 @@ const pseudoOpcode = {
     },
     "sound_changesoundeffectby": {
         "opcode": "sound_changesoundeffectby",
-        "pseudocode": "change (EFFECT) effect by (VALUE)",
-        "regex": "^change \\((.+)\\) effect by \\((.+)\\)$",
+        "pseudocode": "change (EFFECT v) effect by (VALUE)",
+        "regex": "^change \\((.+) v\\) effect by \\((.+)\\)$",
         "category": "sound",
         "blockType": "command", 
         "inputs": {
@@ -410,6 +421,14 @@ const pseudoOpcode = {
             "VOLUME": "number"  // volume in percentage
         }
     },
+    "sound_volume": {
+        "opcode": "sound_volume",
+        "pseudocode": "volume",
+        "regex": "^volume$",
+        "category": "sound",
+        "blockType": "reporter",
+        "inputs": {}
+    },
 
     // Event blocks
     "event_whenflagclicked": {
@@ -450,8 +469,8 @@ const pseudoOpcode = {
     },
     "event_whengreaterthan": {
         "opcode": "event_whengreaterthan",
-        "pseudocode": "when (VARIABLE) > (VALUE)",
-        "regex": "^when \\((.+)\\) > \\((.+)\\)$",
+        "pseudocode": "when (VARIABLE) \> (VALUE)",
+        "regex": "^when \\((.+)\\) \> \\((.+)\\)$",
         "category": "event",
         "blockType": "hat",     
         "inputs": {
@@ -461,8 +480,8 @@ const pseudoOpcode = {
     },
     "event_whenbroadcastreceived": {
         "opcode": "event_whenbroadcastreceived",
-        "pseudocode": "when I receive (BROADCAST)",
-        "regex": "^when I receive \\((.+)\\)$",
+        "pseudocode": "when I receive (BROADCAST v)",
+        "regex": "^when I receive \\((.+) v\\)$",
         "category": "event",
         "blockType": "hat",
         "inputs": {
@@ -471,8 +490,8 @@ const pseudoOpcode = {
     },
     "event_broadcast": {
         "opcode": "event_broadcast",
-        "pseudocode": "broadcast (BROADCAST)",
-        "regex": "^broadcast \\((.+)\\)$",
+        "pseudocode": "broadcast (BROADCAST v)",
+        "regex": "^broadcast \\((.+) v\\)$",
         "category": "event",
         "blockType": "command",
         "inputs": {
@@ -481,8 +500,8 @@ const pseudoOpcode = {
     },
     "event_broadcastandwait": {
         "opcode": "event_broadcastandwait",
-        "pseudocode": "broadcast (BROADCAST) and wait",
-        "regex": "^broadcast \\((.+)\\) and wait$",
+        "pseudocode": "broadcast (BROADCAST v) and wait",
+        "regex": "^broadcast \\((.+) v\\) and wait$",
         "category": "event",
         "blockType": "command",
         "inputs": {
@@ -503,8 +522,8 @@ const pseudoOpcode = {
     },
     "control_repeat": {
         "opcode": "control_repeat",
-        "pseudocode": "repeat (TIMES) { ... }",
-        "regex": "^repeat \\((.+)\\) \\{.*\\}$",
+        "pseudocode": "repeat (TIMES)",
+        "regex": "^repeat \\((.+)\\)$",
         "category": "control",
         "blockType": "c-block",
         "inputs": {
@@ -513,16 +532,16 @@ const pseudoOpcode = {
     },
     "control_forever": {
         "opcode": "control_forever",
-        "pseudocode": "forever { ... }",
-        "regex": "^forever \\{.*\\}$",
+        "pseudocode": "forever",
+        "regex": "^forever$",
         "category": "control",
         "blockType": "c-block",
         "inputs": {}
     },
     "control_if": {
         "opcode": "control_if",
-        "pseudocode": "if <CONDITION> then { ... }",
-        "regex": "^if <(.+)> then \\{.*\\}$",
+        "pseudocode": "if <CONDITION> then",
+        "regex": "^if <(.+)> then$",
         "category": "control",
         "blockType": "c-block",
         "inputs": {
@@ -551,7 +570,7 @@ const pseudoOpcode = {
     },
     "control_repeat_until": {
         "opcode": "control_repeat_until",
-        "pseudocode": "repeat until <CONDITION> { ... }",
+        "pseudocode": "repeat until <CONDITION>",
         "regex": "^repeat until <(.+)> \\{.*\\}$",
         "category": "control",
         "blockType": "c-block",
@@ -561,8 +580,8 @@ const pseudoOpcode = {
     },
     "control_stop": {
         "opcode": "control_stop",
-        "pseudocode": "stop (STOP_OPTION)",
-        "regex": "^stop \\((all|this script|other scripts in sprite)\\)$",
+        "pseudocode": "stop (STOP_OPTION v)",
+        "regex": "^stop \\((all|this script|other scripts in sprite) v\\)$",
         "category": "control",
         "blockType": "command",
         "inputs": {
@@ -579,8 +598,8 @@ const pseudoOpcode = {
     },
     "control_create_clone_of": {
         "opcode": "control_create_clone_of",
-        "pseudocode": "create clone of (CLONE_OPTION)",
-        "regex": "^create clone of \\((.+)\\)$",
+        "pseudocode": "create clone of (CLONE_OPTION v)",
+        "regex": "^create clone of \\((.+) v\\)$",
         "category": "control",
         "blockType": "command",
         "inputs": {
@@ -600,8 +619,8 @@ const pseudoOpcode = {
     // Sensing blocks
     "sensing_touchingobject": {
         "opcode": "sensing_touchingobject",
-        "pseudocode": "touching (TOUCHING_OPTION)?",
-        "regex": "^touching \\((.+)\\)?$",
+        "pseudocode": "touching (TOUCHING_OPTION v)?",
+        "regex": "^touching \\((.+) v\\)?$",
         "category": "sensing",
         "blockType": "boolean",
         "inputs": {
@@ -631,8 +650,8 @@ const pseudoOpcode = {
     },
     "sensing_distance": {
         "opcode": "sensing_distance",
-        "pseudocode": "distance to (TARGET)",
-        "regex": "^distance to \\((.+)\\)$",
+        "pseudocode": "distance to (TARGET v)",
+        "regex": "^distance to \\((.+) v\\)$",
         "category": "sensing",
         "blockType": "reporter",
         "inputs": {
@@ -666,6 +685,14 @@ const pseudoOpcode = {
         "inputs": {
             "KEY": "string"  // menu: "space", "up arrow", "down arrow", "left arrow", "right arrow", etc.
         }
+    },
+    "sensing_keyoptions" : {
+        "opcode": "sensing_keyoptions",
+        "pseudocode": "key options",
+        "regex": "^key options$",        
+        "category": "sensing",
+        "blockType": "reporter",
+        "inputs": {}
     },
     "sensing_mousedown": {  
         "opcode": "sensing_mousedown",
@@ -1022,8 +1049,16 @@ const pseudoOpcode = {
             "NAME": "string"  // variable name  
         }
     },
-
-
+    "math_number": {
+        "opcode": "math_number",
+        "pseudocode": "(NUMBER)",
+        "regex": "^\\((.+)\\)$",
+        "category": "math",
+        "blockType": "reporter",
+        "inputs": {
+            "NUMBER": "number"  // number value
+        }
+    },
 };
 
 export default pseudoOpcode;

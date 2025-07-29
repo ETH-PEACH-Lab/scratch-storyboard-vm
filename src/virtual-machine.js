@@ -26,7 +26,8 @@ const {serializeSounds, serializeCostumes} = require('./serialization/serialize-
 require('canvas-toBlob');
 const fetch = require('node-fetch');
 const parsePseudoCode = require('./engine/pseudocode-parser');
-const pseudoOpcode = require('./engine/pseudo-opcode').default;
+const exampleblocks = require('./exampleblocks.json');
+const {understandingFeedbackPrompt, planningFeedbackPrompt, statusFeedbackPrompt, goodEnoughPrompt, translationPrompt, pseudocodePrompt} = require('./engine/prompts')
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -93,12 +94,20 @@ class VirtualMachine extends EventEmitter {
         // };
 
         this.storyboardOverall = {
-            title: 'Äpfel sammeln',
-            description: 'Bewege die Schale und sammle die Äpfel ein. Die roten Äpfel sind geben einen Punkt, und die goldenen Äpfel geben zwei Punkte. Bei 10 Punkten hat mab gewonnen',
-            globalVariables: ['Punkte'],
+            title: 'Collecting Apples',
+            description: 'Move the bowl and collect the apples. The red apples give one point, and the golden apples give two points. At 10 points you win.',
+            globalVariables: ['Score'],
             descriptionFeedback: {text: '', color: 'NeedsImprovement'},
             globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
-        }; // for testing purposes
+        }; // for testing purposes English
+
+        // this.storyboardOverall = {
+        //     title: 'Äpfel sammeln',
+        //     description: 'Bewege die Schale und sammle die Äpfel ein. Die roten Äpfel sind geben einen Punkt, und die goldenen Äpfel geben zwei Punkte. Bei 10 Punkten hat mab gewonnen',
+        //     globalVariables: ['Punkte'],
+        //     descriptionFeedback: {text: '', color: 'NeedsImprovement'},
+        //     globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
+        // }; // for testing purposes German
 
         this.feedbacks = [];
 
@@ -975,180 +984,8 @@ class VirtualMachine extends EventEmitter {
         return this.referenceProjectPseudoCodeString;
     }
 
-    understandingFeedbackPrompt (language) {
-        const prompt = `You are an assistant that gives structured feedback on a middle school students' Scratch projects.
-You will be given a project description, a list of behaviors, and a reference project, basically a solution to the project the student should rebuild.
-The project description and list of behaviors will be in ${language}.
-Your task is to provide feedback on the project in ${language}, including:
-1. On the description of the project.
-2. On the list of global variables used in the project.
-3. And for each sprite on a list of behaviors used in the project.
-    
-Here is the reference project the pseudo code of the sprites behavior.
-${this.referenceProjectPseudoCodeString}
-
-Everything below is the students' project description and behaviors.
-Project title: ${this.storyboardOverall.title}
-Overall project description: ${this.storyboardOverall.description}
-A list of global variables: ${this.storyboardOverall.globalVariables}
-
-The behavior names for each sprite:
-${JSON.stringify(this.runtime.targets.map(target => ({
-        name: target.getName(),
-        behaviors: target.sprite.behaviors.map(behavior => ({
-            name: behavior.name
-        }))
-    })))}
-
-First try to understand the reference project as it is a solution to the project (what is happening?). 
-But don't state what you have understood it in the feedback neither that you have access to the pseudocode.
-Then based on the students' project description and the solution give feedback on the students' description.
-The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. 
-Don't be too long, but be specific and clear. It is feedback for a middle school student and needs to be in German.
-`.trim();
-
-        return prompt;
-    }
-
-    planningFeedbackPrompt (language) {
-
-        const prompt = `You are an assistant that gives structured feedback on students' Scratch projects.
-You will be given a project description, a list of behaviors, and a reference project.
-The project description and list of behaviors will be in ${language}.
-Your task is to provide feedback on the project in ${language}, including:
-1. On the description of the project.
-2. On the list of global variables used in the project.
-3. And for each sprite on a list of behaviors used in the project, 
-including their descriptions and any related sprites or blocks.
-
-Here is the reference project pseudo code from each sprite:
-${this.referenceProjectPseudoCodeString}
-
-You have given feedback on the project description and the behaviors in the previous step. Now the student is ready to plan the project.
-Which means they are further describing the behaviors with variables, related sprites, sounds, costumes. 
-The variables were selected from a predefined list including the global variables and the sprite variables like x, y coordinates.
-The related sprites were also selected from a predefined list of sprites that are part of the project, excluding the sprite this behavior belongs to.
-The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it.
-
-Everything below is the students' project description and behaviors.
-The project title: ${this.storyboardOverall.title}
-The overall project description:
-${this.storyboardOverall.description}
-The global variables comma-separated: ${this.storyboardOverall.globalVariables}
-
-The sprite behaviors:
-${JSON.stringify(this.runtime.targets.map(target => ({
-        name: target.getName(),
-        behaviors: target.sprite.behaviors.map(behavior => ({
-            name: behavior.name,
-            description: behavior.description,
-            variables: behavior.variables,
-            relatedSprites: behavior.relatedSprites,
-            relatedBlocks: behavior.relatedBlocks
-        }))
-    })))}
-    
-The feedback should be structured as follows:
-{
-    "overallDescriptionFeedback": "correctness and completeness of the overall project description.",
-    "globalVariablesFeedback": "correctness and completeness of the global variables.",
-    "sprites": [
-        {
-            "name": "Sprite name",
-            "behaviors": [
-                {
-                    "name": "Behavior name",
-                    "feedback": {
-                        "variables": "correctness and completeness of the behavior variables.",    
-                        "description": "correctness and completeness of the behavior description.",  
-                        "sounds": "correctness and completeness of the sounds.",
-                        "costumes": "correctness and completeness of the costumes.",
-                        "relatedSprites": "correctness and completeness of the related sprites.",
-                    }
-                }
-            ]
-            
-        }
-    ]
-}
-
-Always add the feedback in the corresponding field of the sprite and behavior. If there is no behavior for a specific sprite do not make it up. 
-Only give feedback in the json feedback structure with double quotes with the keys mentioned above. 
-And for the fields like relatedSprites and variables give feedback about completeness and correctness do not list the individual items in the list.
-`.trim();
-
-        if (this.feedbacks.length > 0) {
-            const matches = this.feedbacks.filter(item => item.type === 'understanding');
-            const lastMatch = matches.at(-1);
-            const lastResponse = lastMatch ? lastMatch.response : '';
-            if (lastMatch && lastResponse) {
-
-                const lastPrompt = lastMatch ? lastMatch.prompt : '';
-                const memory = `The last prompt including the last state of the description was 
-                ${lastPrompt}. 
-                And the last feedback response was: ${lastResponse}`;
-                const finalPrompt = prompt + memory;
-                return finalPrompt;
-            }
-        }
-
-        return prompt;
-    }
-
-    statusfeedbackPrompt (feedback) {
-        const prompt = `
-Based on the following feedback, state if the corresponding components of the sprite and behavior are Complete, Incomplete or NeedsImprovement
-
-here is the feedback: ${feedback}
-
-The output should look like this, but have the sprite names from the project and feedback above:
-
-{
-    "overallDescriptionFeedback": "NeedsImprovement",
-    "globalVariablesFeedback": "Complete",
-    "sprites": [
-        {
-            "name": "Sprite name 1",
-            "behaviors": [
-                { 
-                    "name": "Behavior name 1",
-                    "feedback": {
-                        "description": "NeedsImprovement",
-                        "variables": "Complete",
-                        "sounds": "Complete",
-                        "costumes": "Complete",
-                        "relatedSprites": "Incomplete"
-                    }
-                } 
-            ]
-        },
-        {
-            "name": "Sprite name 2",
-            "behaviors": [
-                { 
-                    "name": "Behavior name 3",
-                    "feedback": {
-                        "description": "NeedsImprovement",
-                        "variables": "Incomplete",
-                        "sounds": "Complete",
-                        "costumes": "Complete",
-                        "relatedSprites": "Complete"
-                    }
-                } 
-            ]
-        }
-    ]
-}
-
-Based on the given feedback make a prediction of the status of the component for all sprites and all behaviors and all fields. 
-If there is no behavior for a specific sprite do not make it up. And for the fields like relatedSprites and variables also only select the status whether the list is Complete or Incomplete or NeedsImprovement if a wrong option was selected.
-`.trim();
-        return prompt;
-    }
-
     async getUnderstandingFeedback () {
-
-        const prompt = this.understandingFeedbackPrompt(this.getLocale().language);
+        const prompt = understandingFeedbackPrompt(this, this.getLocale());
         console.log(new Date().toISOString());
         console.log(prompt);
         const response = await this.callGPT(prompt);
@@ -1157,7 +994,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         
         this.feedbacks.push({
             type: 'understanding',
-            language: this.getLocale().language,
+            language: this.getLocale(),
             prompt,
             response
         });
@@ -1167,7 +1004,7 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
     async getPlanningFeedback () {
 
-        const prompt = this.planningFeedbackPrompt(this.getLocale().language);
+        const prompt = planningFeedbackPrompt(this, this.getLocale());
         console.log(new Date().toISOString());
         console.log(prompt);
         const response = await this.callGPT(prompt);
@@ -1177,13 +1014,13 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 
         this.feedbacks.push({
             type: 'planning',
-            language: this.getLocale().language,
+            language: this.getLocale(),
             prompt,
             returnA
         });
         this.emitTargetsUpdate();
 
-        const statusPrompt = this.statusfeedbackPrompt(returnA);
+        const statusPrompt = statusFeedbackPrompt(returnA);
         console.log(new Date().toISOString());
         console.log(statusPrompt);
         const statusResponse = await this.callGPT(statusPrompt);
@@ -1331,190 +1168,50 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
         this.emitTargetsUpdate();
     }
 
-    rewritingPrompt (language = this.getLocale().language, behaviorIndex) {
-        return `You are an assistant that rewrites students project descriptions of a sprite's behavior to a more detailed. 
-        Try to guess what the students mean. This description will be used to translate into a pseudo code of executable Scratch 3.0 blocks.
-        Here is the one behavior description for the sprite ${this.editingTarget.getName()}:
-        ${this.editingTarget.sprite.behaviors[behaviorIndex].description}
-
-        You can start with 'oh you mean' or 'oh du meinst' if ${language === 'de'} and then rewrite the description.
-    `;
-    }
-
-    goodEnoughPrompt (language = this.getLocale().language, behaviorIndex) {
-        return `You are an expert in programming education. Given a student's natural language plan for a Scratch project, your job is to judge whether this plan is specific enough to generate Scratchblocks without additional clarification.
-The plan should include concrete, observable actions (e.g., motion, events, conditions, interactions) and ideally specify agents, targets, and conditions.
-Please return:
-is_specific: true or false
-explanation: a short sentence explaining your reasoning
-clarification: as the student to clarify the plan if it is not specific enough.
-description: the original student plan rewritten if the is_specific is true.
-Student plan:
- "${this.editingTarget.sprite.behaviors[behaviorIndex].description}"
-
-If an example plan is
-Student plan:
-"The bowl should pick up the red apple."
-Then the response should be
-{
-  "is_specific": false,
-  "explanation": "The plan lacks concrete actions like movement direction, sensing, or interaction triggers; 'pick up' is ambiguous in Scratch.",
-  "clarification": "Please specify how the bowl should pick up the apple, e.g., 'move to the apple and use a grabbing action'.",
-  "description": ""
-}
-
-if the student plan is good enough, then the response should be
-{
-  "is_specific": true,
-  "explanation": "The plan includes specific actions and conditions that can be directly translated into Scratch blocks.",
-  "clarification": "",
-  "description": "Move the bowl left and right until it touches the red apple, then hide the apple."
-}
-  
-Here are some more examples of too vague and good plans:
-
-too vague plans:
-"The bowl should pick up the red apple."
-"The cat should get to the finish line."
-"Make the character dance when it wins."
-"It should look happy when things go well."
-"The cat kills the enemy."
-
-good plans:
-"Move the bowl to the right until it touches the red apple, then hide the apple."
-"When the green flag is clicked, make the sprite say 'Hello!' for 2 seconds."
-"If the score is greater than 10, play a sound and show the you win sprite."
-"Repeat 5 times: move 10 steps, then turn 15 degrees."
-"If the character is touching the red apple, change score by 1 and hide the apple."
-`;
-    }
-
-    async getBehaviorFeedback (behaviorIndex) {
-        const prompt = this.goodEnoughPrompt(this.getLocale().language, behaviorIndex);
+    async getBehaviorFeedback (id) {
+        const prompt = goodEnoughPrompt(this, id);
         console.log(new Date().toISOString());
-        const response = await this.callGPT(prompt);
+        const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
-        console.log(response);
-        const matches = response.match(/\{[^{}]*\}/g);
+        
+        const matches = response.response.match(/\{[\s\S]*\}/);
         if (!matches || matches.length === 0) {
             console.error('No JSON object found in response:', response);
-            return response;
+            return response.response;
         }
         const jsonResponse = matches[0];
-        let responseObject;
         try {
-            responseObject = JSON.parse(jsonResponse);
-            this.editingTarget.sprite.behaviors[behaviorIndex].is_specific = responseObject.is_specific;
-            this.editingTarget.sprite.behaviors[behaviorIndex].clarification = responseObject.clarification;
-            this.editingTarget.sprite.behaviors[behaviorIndex].explanation = responseObject.explanation;
-            this.editingTarget.sprite.behaviors[behaviorIndex].generatedDescription = responseObject.description;
-            this.emitTargetsUpdate();
+            const responseObject = JSON.parse(jsonResponse);
+            const behavior = this.editingTarget.sprite.behaviors.filter(behavior => behavior.id === id)[0]
+            behavior.is_specific = responseObject.is_specific;
+            behavior.clarification = responseObject.clarification;
+            behavior.explanation = responseObject.explanation;
+            behavior.description = responseObject.description;  
+
+            if (behavior.is_specific) {
+                this.generateBlocks(behavior);
+            }
+            return jsonResponse;
         } catch (e) {
             console.error('Error parsing JSON response:', e);
             return response;
         }
     }
 
-    pseudocodePrompt (behaviorIndex) {
-        return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
-Here is a behavior description of sprite ${this.editingTarget.getName()}:
-${this.editingTarget.sprite.behaviors[behaviorIndex].generatedDescription}
-    
-Here is the complete list of pseudo code blocks that can be used to create the pseudo code for this behavior:
-${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    opcode: block.opcode,
-    pseudocode: block.pseudocode
-})), null, 2)}
-
-Do not write any text before or after the pseudo code, just the pseudo code blocks in the format of the example below.
-Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
-
-when [space v] key pressed
-repeat (10)
-    change y by (10)
-end
-repeat (10)
-    change y by (-10)
-end
-change [Punkte v] by (1)
-
-when @greenFlag clicked
-go to x: (-180) y: (-130)
-set [Punkte v] to [0]
-`;
-    } 
-
-    async generateBlocks (behaviorIndex) {
-        const prompt = this.pseudocodePrompt(behaviorIndex);
+    // generating blocks for one behavio
+    async generateBlocks (behavior) {
+        const prompt = pseudocodePrompt(this, behavior);
         console.log(new Date().toISOString());
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
         const blocks = response.response;
         console.log(blocks);
 
-        const scripts = parsePseudoCode(blocks);
-        for (const script of scripts) {
-            if (script.length === 0) continue;
-            console.log(script);
-            target.storyboardBlocks.createBlock(script);
+        const parsedBlocks = parsePseudoCode(blocks);
+        for (const block of parsedBlocks) {
+            console.log(block);
+            target.storyboardBlocks.createBlock(block);
         }
-    }
-
-    translationPrompt (language = this.getLocale().language) {
-        return `You are an assistant that translates project descriptions and sprite behaviors to a Scratch 3.0 project json.
-
-Here is the project title:
-${this.storyboardOverall.title}
-
-Here is the overall project description (How the game works (rules, win/loss condition, scoring, levels?)):
-${this.storyboardOverall.description}
-
-Here are the global variables comma-separated that might be used for the win/loss conditions:
-${this.storyboardOverall.globalVariables}
-
-Here are the list of behaviors (movement, interaction, control) for each sprite:
-${JSON.stringify(this.runtime.targets.map(target => ({
-    name: target.getName(),
-    behaviors: target.sprite.behaviors.map(behavior => ({
-        name: behavior.name,
-        description: behavior.description,
-        variables: behavior.variables,
-        sounds: behavior.sounds,
-        costumes: behavior.costumes,
-        relatedSprites: behavior.relatedSprites
-    }))
-})))}
-
-Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
-
-Here is the complete list of pseudo code blocks that can be used to create the Scratch 3.0 project:
-${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    opcode: block.opcode,
-    pseudocode: block.pseudocode
-})), null, 2)}
-
-Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
-
-**Cat**
-
-when [space v] key pressed
-repeat (10)
-    change y by (10)
-end
-repeat (10)
-    change y by (-10)
-end
-change [Punkte v] by (1)
-
-when @greenFlag clicked
-go to x: (-180) y: (-130)
-set [Punkte v] to [0]
-
-The description of the project is in ${language}. If it is not English be aware to translate it, especially the sprite names.
-Translate the project description and sprite behaviors to pseudo code for each sprite, using the provided blocks. 
-The pseudo must be in the same format as the example above. Between every new group of blocks starting with when there should be a new line.
-Variables and objects also sprites, costumes and sounds should always be in round brackets () and no need to put the code in backticks or any other formatting.
-`.trim();
     }
 
     // more examples to create correct pseudo code: for conditions and so on.
@@ -1524,34 +1221,64 @@ Variables and objects also sprites, costumes and sounds should always be in roun
      * @returns {string} The prompt for translation to blocks.
      */
     async descriptionToBlocks (){
-        const prompt = this.translationPrompt();
+        
+        // // for testing if greenflag works with storyboard blocks (worked)
+        // Object.entries(exampleblocks).forEach(([id, block]) => {
+        //     block.id = id
+        //     this.editingTarget.storyboardBlocks.createBlock(block);
+        //     // Register as a top-level script if it's a hat block
+        //     if (block.topLevel) {
+        //         console.log(`Registered block ${id} as a top-level script.`);
+        // }
+        // });
+        // console.log('Example blocks created:', this.editingTarget.storyboardBlocks);
+
+        const prompt = translationPrompt(this);
         console.log(new Date().toISOString());
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
         const feedbackResponse = response.response;
         console.log(feedbackResponse);
 
-        // this.runtime.createNewGlobalVariable(this.storyboardOverall.globalVariables);
+        // for testing parser
+//         const feedbackResponse = `**Bowl**w
+// when @greenFlag clicked
+// forever
+//     if <key [right arrow v] pressed?> then
+//         change x by (10)
+//     end
+//     if <key [left arrow v] pressed?> then
+//         change x by (-10)
+//     end
+// end
+
+// when @greenFlag clicked
+// forever
+//     if <touching [Golden Apple v]?> then
+//         change [Score v] by (2)
+//     end
+// end`;
+
+        this.storyboardOverall.globalVariables.forEach((variable) => this.runtime.createNewGlobalVariable(variable));
         this.runtime.targets.forEach(target => {
             const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
             console.log(`Behavior blocks for ${target.getName()}:`, behaviorBlocks);
             // per block group parse the pseudo code to create blocks
-            // behaviorBlocks.forEach(blocks => {
-            //     console.log(blocks);
-            //     const scripts = parsePseudoCode(blocks);
-            //     for (const script of scripts) {
-            //         if (script.length === 0) continue;
-            //         console.log(script);
-            //         target.storyboardBlocks.createBlock(script);
-            //     }
-            // });
-            // console.log(target.storyboardBlocks);
-        });
+            behaviorBlocks.forEach(pseudoblocks => {
+                console.log(pseudoblocks);
+                const blocks = parsePseudoCode(pseudoblocks);
+                for (const block of blocks) {
+                    console.log(block);
+                    target.storyboardBlocks.createBlock(block);
+                }
+            });
+            console.log(target.storyboardBlocks);
+        });                         
 
         // to update the workspace view
         this.runtime.requestRedraw();
 
-        return response;
+        return 'response';
     }
 
     extractBehaviorBlocks (feedbackResponse, targetName) {

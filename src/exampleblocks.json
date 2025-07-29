@@ -1,0 +1,22 @@
+{
+    "wD11T^Sir9kkUzU*UuQ;": {
+        "opcode": "event_whenflagclicked",
+        "next": "^E2urg4^cXJ,TI)nQcWQ",
+        "parent": null,
+        "inputs": {},
+        "fields": {},
+        "shadow": false,
+        "topLevel": true,
+        "x": 86,
+        "y": 132
+    },
+    "^E2urg4^cXJ,TI)nQcWQ": {
+        "opcode": "looks_hide",
+        "next": null,
+        "parent": "wD11T^Sir9kkUzU*UuQ;",
+        "inputs": {},
+        "fields": {},
+        "shadow": false,
+        "topLevel": false
+    }
+}
