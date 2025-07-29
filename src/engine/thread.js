@@ -375,8 +375,13 @@ class Thread {
      * For example, this is used in a standard sequence of blocks,
      * where execution proceeds from one block to the next.
      */
-    goToNextBlock () {
-        const nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
+    goToNextBlock (storyboardMode = false) {
+        let nextBlockId = null;
+        if (storyboardMode) {
+            nextBlockId = this.target.storyboardBlocks.getNextBlock(this.peekStack());
+        } else {
+            nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
+        }
         this.reuseStackForNextBlock(nextBlockId);
     }
 

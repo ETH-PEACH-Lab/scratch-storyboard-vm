@@ -1809,7 +1809,7 @@ class Runtime extends EventEmitter {
         thread.stackClick = Boolean(opts && opts.stackClick);
         thread.updateMonitor = Boolean(opts && opts.updateMonitor);
         thread.blockContainer = thread.updateMonitor ?
-            this.monitorBlocks :
+            this.monitorBlocks : this.storyboardMode ? target.storyboardBlocks :
             target.blocks;
 
         thread.pushStack(id);
@@ -1957,12 +1957,9 @@ class Runtime extends EventEmitter {
         }
         for (let t = targets.length - 1; t >= 0; t--) {
             const target = targets[t];
-            let scripts;
-            if (this.storyboardMode) {
-                scripts = target.storyboardblocks.getScripts();
-            } else {
-                scripts = target.blocks.getScripts();
-            }
+            const scripts = this.storyboardMode
+                ? target.storyboardBlocks.getScripts()
+                : target.blocks.getScripts();
             for (let j = 0; j < scripts.length; j++) {
                 const topBlockId = scripts[j];
                 f(topBlockId, target);
@@ -1977,11 +1974,17 @@ class Runtime extends EventEmitter {
         }
         for (let t = targets.length - 1; t >= 0; t--) {
             const target = targets[t];
-            const scripts = BlocksRuntimeCache.getScripts(
+
+            const scripts = this.storyboardMode
+                ? BlocksRuntimeCache.getScripts(
+                target.storyboardBlocks,
+                opcode
+            ) : BlocksRuntimeCache.getScripts(
                 target.blocks,
                 opcode
             );
             for (let j = 0; j < scripts.length; j++) {
+                console.log('2', opcode, scripts, target);
                 f(scripts[j], target);
             }
         }
@@ -2015,7 +2018,6 @@ class Runtime extends EventEmitter {
             }
             optMatchFields[opts] = optMatchFields[opts].toUpperCase();
         }
-
         // Consider all scripts, looking for hats with opcode `requestedHatOpcode`.
         this.allScriptsByOpcodeDo(
             requestedHatOpcode,
@@ -2079,7 +2081,7 @@ class Runtime extends EventEmitter {
         // threads are stepped. See ScratchRuntime.as for original implementation
         newThreads.forEach(thread => {
             execute(this.sequencer, thread);
-            thread.goToNextBlock();
+            thread.goToNextBlock(this.storyboardMode);
         });
         return newThreads;
     }
