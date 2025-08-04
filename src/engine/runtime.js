@@ -1804,7 +1804,7 @@ class Runtime extends EventEmitter {
      * @return {!Thread} The newly created thread.
      */
     _pushThread (id, target, opts) {
-        const thread = new Thread(id);
+        const thread = new Thread(id, this.storyboardMode);
         thread.target = target;
         thread.stackClick = Boolean(opts && opts.stackClick);
         thread.updateMonitor = Boolean(opts && opts.updateMonitor);
@@ -2081,7 +2081,7 @@ class Runtime extends EventEmitter {
         // threads are stepped. See ScratchRuntime.as for original implementation
         newThreads.forEach(thread => {
             execute(this.sequencer, thread);
-            thread.goToNextBlock(this.storyboardMode);
+            thread.goToNextBlock();
         });
         return newThreads;
     }
@@ -2245,21 +2245,6 @@ class Runtime extends EventEmitter {
      * Start all threads that start with the green flag.
      */
     greenFlag () {
-        this.stopAll();
-        this.emit(Runtime.PROJECT_START);
-        this.ioDevices.clock.resetProjectTimer();
-        this.targets.forEach(target => target.clearEdgeActivatedValues());
-        // Inform all targets of the green flag.
-        for (let i = 0; i < this.targets.length; i++) {
-            this.targets[i].onGreenFlag();
-        }
-        this.startHats('event_whenflagclicked');
-    }
-
-    /**
-     * Start all threads that start with the green flag in storyboard mode.
-     */
-    greenFlagStoryboard () {
         this.stopAll();
         this.emit(Runtime.PROJECT_START);
         this.ioDevices.clock.resetProjectTimer();
@@ -2445,6 +2430,7 @@ class Runtime extends EventEmitter {
      * @param {Array.<Thread>=} optExtraThreads Optional list of inactive threads.
      */
     _updateGlows (optExtraThreads) {
+        if (this.storyboardMode) {return;}
         const searchThreads = [];
         searchThreads.push(...this.threads);
         if (optExtraThreads) {

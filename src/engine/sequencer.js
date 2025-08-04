@@ -286,10 +286,18 @@ class Sequencer {
             branchNum = 1;
         }
         const currentBlockId = thread.peekStack();
-        const branchId = thread.target.blocks.getBranch(
-            currentBlockId,
-            branchNum
-        );
+        let branchId = null;
+        if (thread.storyboardMode) {
+            branchId = thread.target.storyboardBlocks.getBranch(
+                currentBlockId,
+                branchNum
+            );
+        } else {
+            branchId = thread.target.blocks.getBranch(
+                currentBlockId,
+                branchNum
+            );
+        }
         thread.peekStackFrame().isLoop = isLoop;
         if (branchId) {
             // Push branch ID to the thread's stack.
@@ -305,7 +313,12 @@ class Sequencer {
      * @param {!string} procedureCode Procedure code of procedure to step to.
      */
     stepToProcedure (thread, procedureCode) {
-        const definition = thread.target.blocks.getProcedureDefinition(procedureCode);
+        let definition;
+        if (thread.storyboardMode) {
+            definition = thread.target.storyboardBlocks.getProcedureDefinition(procedureCode);
+        } else {
+            definition = thread.target.blocks.getProcedureDefinition(procedureCode);
+        }     
         if (!definition) {
             return;
         }
@@ -325,9 +338,17 @@ class Sequencer {
         } else {
             // Look for warp-mode flag on definition, and set the thread
             // to warp-mode if needed.
-            const definitionBlock = thread.target.blocks.getBlock(definition);
-            const innerBlock = thread.target.blocks.getBlock(
-                definitionBlock.inputs.custom_block.block);
+            let definitionBlock;
+            let innerBlock;
+            if (thread.storyboardMode) {
+                definitionBlock = thread.target.storyboardBlocks.getBlock(definition);
+                innerBlock = thread.target.storyboardBlocks.getBlock(
+                    definitionBlock.inputs.custom_block.block);
+            } else {
+                definitionBlock = thread.target.blocks.getBlock(definition);
+                innerBlock = thread.target.blocks.getBlock(
+                    definitionBlock.inputs.custom_block.block);
+            }    
             let doWarp = false;
             if (innerBlock && innerBlock.mutation) {
                 const warp = innerBlock.mutation.warp;

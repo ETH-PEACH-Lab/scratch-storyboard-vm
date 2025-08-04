@@ -123,7 +123,7 @@ class _StackFrame {
  * @constructor
  */
 class Thread {
-    constructor (firstBlock) {
+    constructor (firstBlock, StoryboardMode = false) {
         /**
          * ID of top block of the thread
          * @type {!string}
@@ -187,6 +187,8 @@ class Thread {
         this.warpTimer = null;
 
         this.justReported = null;
+
+        this.storyboardMode = StoryboardMode;
     }
 
     /**
@@ -273,7 +275,12 @@ class Thread {
     stopThisScript () {
         let blockID = this.peekStack();
         while (blockID !== null) {
-            const block = this.target.blocks.getBlock(blockID);
+            let block;
+            if (this.storyboardMode) {
+                block = this.target.storyboardBlocks.getBlock(blockID);
+            } else {
+                block = this.target.blocks.getBlock(blockID);
+            }
             if (typeof block !== 'undefined' && block.opcode === 'procedures_call') {
                 break;
             }
@@ -375,9 +382,9 @@ class Thread {
      * For example, this is used in a standard sequence of blocks,
      * where execution proceeds from one block to the next.
      */
-    goToNextBlock (storyboardMode = false) {
+    goToNextBlock () {
         let nextBlockId = null;
-        if (storyboardMode) {
+        if (this.storyboardMode) {
             nextBlockId = this.target.storyboardBlocks.getNextBlock(this.peekStack());
         } else {
             nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
@@ -395,7 +402,12 @@ class Thread {
         let callCount = 5; // Max number of enclosing procedure calls to examine.
         const sp = this.stack.length - 1;
         for (let i = sp - 1; i >= 0; i--) {
-            const block = this.target.blocks.getBlock(this.stack[i]);
+            let block;
+            if (this.storyboardMode) {
+                block = this.target.storyboardBlocks.getBlock(this.stack[i]);
+            } else {
+                block = this.target.blocks.getBlock(this.stack[i]);
+            }
             if (block.opcode === 'procedures_call' &&
                 block.mutation.proccode === procedureCode) {
                 return true;

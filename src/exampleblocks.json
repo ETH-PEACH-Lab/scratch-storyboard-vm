@@ -1,22 +1,99 @@
 {
-    "wD11T^Sir9kkUzU*UuQ;": {
+    ":3pTNlU(xA%wJkE|nMG^": {
+        "id": ":3pTNlU(xA%wJkE|nMG^",
         "opcode": "event_whenflagclicked",
-        "next": "^E2urg4^cXJ,TI)nQcWQ",
-        "parent": null,
         "inputs": {},
         "fields": {},
-        "shadow": false,
+        "next": "ax2QQlY!,~6#1[4S#szI",
         "topLevel": true,
-        "x": 86,
-        "y": 132
+        "parent": null
     },
-    "^E2urg4^cXJ,TI)nQcWQ": {
-        "opcode": "looks_hide",
+    "ax2QQlY!,~6#1[4S#szI": {
+        "id": "ax2QQlY!,~6#1[4S#szI",
+        "opcode": "control_forever",
+        "inputs": {
+            "SUBSTACK": {
+                "name": "SUBSTACK",
+                "block": "0-OQm.B@Nyyr:hcqrlq?"
+            }
+        },
+        "fields": {},
         "next": null,
-        "parent": "wD11T^Sir9kkUzU*UuQ;",
+        "topLevel": false,
+        "parent": ":3pTNlU(xA%wJkE|nMG^"
+    },
+    "0-OQm.B@Nyyr:hcqrlq?": {
+        "id": "0-OQm.B@Nyyr:hcqrlq?",
+        "opcode": "looks_show",
         "inputs": {},
         "fields": {},
-        "shadow": false,
-        "topLevel": false
+        "next": "v)!XC=W{}%xw2A9*HZfn",
+        "topLevel": false,
+        "parent": "ax2QQlY!,~6#1[4S#szI"
+    },
+    "W2HV[95F:Oe/[|BIn:(a": {
+        "id": "W2HV[95F:Oe/[|BIn:(a",
+        "opcode": "looks_hide",
+        "inputs": {},
+        "fields": {},
+        "next": "Msk1gG0_ol[q$j*v@XAP",
+        "topLevel": false,
+        "parent": "v)!XC=W{}%xw2A9*HZfn"
+    },
+    "v)!XC=W{}%xw2A9*HZfn": {
+        "id": "v)!XC=W{}%xw2A9*HZfn",
+        "opcode": "control_wait",
+        "inputs": {
+            "DURATION": {
+                "name": "DURATION",
+                "block": "^+-P/VEm98FZxAyZ%JJv"
+            }
+        },
+        "fields": {},
+        "next": "W2HV[95F:Oe/[|BIn:(a",
+        "topLevel": false,
+        "parent": "0-OQm.B@Nyyr:hcqrlq?"
+    },
+    "^+-P/VEm98FZxAyZ%JJv": {
+        "id": "^+-P/VEm98FZxAyZ%JJv",
+        "opcode": "math_positive_number",
+        "inputs": {},
+        "fields": {
+            "NUM": {
+                "name": "NUM",
+                "value": "1"
+            }
+        },
+        "next": null,
+        "topLevel": false,
+        "parent": "v)!XC=W{}%xw2A9*HZfn"
+    },
+    "Msk1gG0_ol[q$j*v@XAP": {
+        "id": "Msk1gG0_ol[q$j*v@XAP",
+        "opcode": "control_wait",
+        "inputs": {
+            "DURATION": {
+                "name": "DURATION",
+                "block": "Yn=$:?1B9MD_oL+t9Vcn"
+            }
+        },
+        "fields": {},
+        "next": null,
+        "topLevel": false,
+        "parent": "W2HV[95F:Oe/[|BIn:(a"
+    },
+    "Yn=$:?1B9MD_oL+t9Vcn": {
+        "id": "Yn=$:?1B9MD_oL+t9Vcn",
+        "opcode": "math_positive_number",
+        "inputs": {},
+        "fields": {
+            "NUM": {
+                "name": "NUM",
+                "value": "1"
+            }
+        },
+        "next": null,
+        "topLevel": false,
+        "parent": "Msk1gG0_ol[q$j*v@XAP"
     }
 }

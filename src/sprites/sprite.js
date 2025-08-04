@@ -52,8 +52,8 @@ class Sprite {
          *      variables: ['x position', 'y position'],
          *      description: "jump, land",
          *      relatedSprites: ["Bananas"],
-         *      sounds: "ping",
-         *      costumes: "jumping",
+         *      sounds: ["ping"],
+         *      costumes: ["jumping"],
          *      possibleBlocks: ["when I start as a clone", "when green flag clicked"]
          *      feedback: {
          *          variables: "you missed the points",

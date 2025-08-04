@@ -483,6 +483,7 @@ class RenderedTarget extends Target {
             for (let i = 0; i < targets.length; i++) {
                 const currTarget = targets[i];
                 currTarget.blocks.updateAssetName(oldName, newUnusedName, 'backdrop');
+                currTarget.storyboardBlocks.updateAssetName(oldName, newUnusedName, 'backdrop');
             }
         } else {
             this.blocks.updateAssetName(oldName, newUnusedName, 'costume');
@@ -1107,7 +1108,9 @@ class RenderedTarget extends Target {
             visible: this.visible,
             rotationStyle: this.rotationStyle,
             comments: this.comments,
+            behaviors: this.sprite.behaviors,
             blocks: this.blocks._blocks,
+            storyboardBlocks: this.storyboardBlocks._blocks,
             variables: this.variables,
             costumes: costumes,
             sounds: this.getSounds(),

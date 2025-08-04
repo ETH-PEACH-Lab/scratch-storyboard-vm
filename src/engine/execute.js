@@ -123,7 +123,11 @@ const handlePromise = (primitiveReportedValue, sequencer, thread, blockCached, l
                 if (popped === null) {
                     return;
                 }
-                nextBlockId = thread.target.blocks.getNextBlock(popped);
+                if (thread.storyboardMode) {
+                    nextBlockId = thread.target.storyboardBlocks.getNextBlock(popped);  
+                } else {
+                    nextBlockId = thread.target.blocks.getNextBlock(popped);
+                }
                 if (nextBlockId !== null) {
                     // A next block exists so break out this loop
                     break;
