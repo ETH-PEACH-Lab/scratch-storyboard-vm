@@ -260,10 +260,9 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
 
 Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
 
-Here is the complete list of pseudo code blocks. Only use these pseudo code blocks to create the Scratch 3.0 project:
+Here is the complete list of pseudo code blocks that can be used to create the pseudo code for the behaviors:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    opcode: block.opcode,
-    pseudocode: block.pseudocode
+    [block.opcode]: block.pseudocode
 })), null, 2)}
 
 Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
@@ -292,16 +291,19 @@ Anything in brackets should either be a variable mentioned like a name or a numb
 
 const pseudocodePrompt = function (vm, behavior) {
         return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
-Here is a behavior description of sprite ${vm.editingTarget.getName()}:
+Here is a behavior description of the sprite ${vm.editingTarget.getName()}:
 ${behavior.description}
-    
-Here is the complete list of pseudo code blocks that can be used to create the pseudo code for this behavior:
-${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    opcode: block.opcode,
-    pseudocode: block.pseudocode
-})), null, 2)}
 
-Do not write any text before or after the pseudo code, just the pseudo code blocks in the format of the example below. Start a new package of blocks/lines with a when block.
+Here is the complete list of pseudo code blocks, only uses these to create the pseudo code for this behavior, find the most fitting block for the description:
+${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
+    [block.opcode]: block.pseudocode
+})), null, 2)}
+At the end of any c-block, like forever, repeat, if, there must be a line with 'end'.
+Variables, sprite, costume and sound names should always be in round brackets ().
+Anything in brackets should either be a variable mentioned like a name or a number or a string where it makes sense. Escape < and >, if you want to use them as greater or smaller than.
+Do not mention the sprite name in the pseudo code, just use the blocks as they are. Only use other sprites names that relate to it if needed.
+Do not write any text before or after the pseudo code! Just the pseudo code blocks in the format of the example below. Start a new package of blocks/lines with a when block. Do not use any backticks or other formatting!
+
 Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
 
 when [space v] key pressed
@@ -311,7 +313,6 @@ end
 repeat (10)
     change y by (-10)
 end
-change [Punkte v] by (1)
 
 when @greenFlag clicked
 go to x: (-180) y: (-130)

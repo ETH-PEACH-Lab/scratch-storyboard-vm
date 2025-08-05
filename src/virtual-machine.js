@@ -232,11 +232,10 @@ class VirtualMachine extends EventEmitter {
     greenFlag (tabindex=0) {
         if (tabindex === 1) {
             this.runtime.storyboardMode = true;
-            this.runtime.greenFlagStoryboard();
         } else {
             this.runtime.storyboardMode = false;
-            this.runtime.greenFlag();
         }
+        this.runtime.greenFlag();
     }
 
     /**
@@ -1205,13 +1204,22 @@ class VirtualMachine extends EventEmitter {
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
         const blocks = response.response;
-        console.log(blocks);
+        const trimmedblocks = blocks.split('\n').slice(blocks.split('\n').findIndex(l => l.trim().startsWith('when'))).join('\n');
+        console.log(trimmedblocks);
 
-        const parsedBlocks = parsePseudoCode(blocks);
-        for (const block of parsedBlocks) {
-            console.log(block);
-            target.storyboardBlocks.createBlock(block);
+        const scratchblocks = parsePseudoCode(trimmedblocks, 
+            Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+            Object.values(this.editingTarget.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+            this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
+            );
+
+        for (const group of scratchblocks) {
+            for (const block of Object.values(group.blocks)) {
+                this.editingTarget.storyboardBlocks.createBlock(block);
+            }
         }
+        console.log(this.editingTarget.storyboardBlocks);
+        return 'response';
     }
 
     // more examples to create correct pseudo code: for conditions and so on.
@@ -1222,7 +1230,7 @@ class VirtualMachine extends EventEmitter {
      */
     async descriptionToBlocks (){
         
-        // // for testing if greenflag works with storyboard blocks (worked)
+        // for testing if greenflag works with storyboard blocks (worked)
         // Object.entries(exampleblocks).forEach(([id, block]) => {
         //     block.id = id
         //     this.editingTarget.storyboardBlocks.createBlock(block);
@@ -1233,50 +1241,76 @@ class VirtualMachine extends EventEmitter {
         // });
         // console.log('Example blocks created:', this.editingTarget.storyboardBlocks);
 
-        const prompt = translationPrompt(this);
-        console.log(new Date().toISOString());
-        const response = await this.callOllama(prompt);
-        console.log(new Date().toISOString());
-        const feedbackResponse = response.response;
-        console.log(feedbackResponse);
+        // const prompt = translationPrompt(this);
+        // console.log(new Date().toISOString());
+        // const response = await this.callOllama(prompt);
+        // console.log(new Date().toISOString());
+        // const feedbackResponse = response.response;
+        // console.log(feedbackResponse);
 
         // for testing parser
-//         const feedbackResponse = `**Bowl**w
-// when @greenFlag clicked
-// forever
-//     if <key [right arrow v] pressed?> then
-//         change x by (10)
-//     end
-//     if <key [left arrow v] pressed?> then
-//         change x by (-10)
-//     end
-// end
+        const feedbackResponse = `**Bowl**
+when @greenFlag clicked
+forever
+    if <key [right arrow v] pressed?> then
+        change x by (10)
+    end
+    if <key [left arrow v] pressed?> then
+        change x by (-10)
+    end
+end
 
-// when @greenFlag clicked
-// forever
-//     if <touching [Golden Apple v]?> then
-//         change [Score v] by (2)
-//     end
-// end`;
+when @greenFlag clicked
+forever
+    if <touching [Golden Apple v]?> then
+        change [Score v] by (2)
+    end
+end`;
 
         this.storyboardOverall.globalVariables.forEach((variable) => this.runtime.createNewGlobalVariable(variable));
-        this.runtime.targets.forEach(target => {
-            const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
-            console.log(`Behavior blocks for ${target.getName()}:`, behaviorBlocks);
-            // per block group parse the pseudo code to create blocks
-            behaviorBlocks.forEach(pseudoblocks => {
-                console.log(pseudoblocks);
-                const blocks = parsePseudoCode(pseudoblocks);
-                for (const block of blocks) {
-                    console.log(block);
-                    target.storyboardBlocks.createBlock(block);
-                }
-            });
-            console.log(target.storyboardBlocks);
-        });                         
+        // this.runtime.targets.forEach(target => {
+        //     const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
+        //     console.log(`Behavior blocks for ${target.getName()}:`, behaviorBlocks);
+        //     // per block group parse the pseudo code to create blocks
+        //     behaviorBlocks.forEach(pseudoblocks => {
+        //         console.log(pseudoblocks);
+        //         const blocks = parsePseudoCode(pseudoblocks, 
+        //             Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+        //             Object.values(target.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+        //             this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
+        //             );
+        //         for (const group of blocks) {
+        //             for (const block of Object.values(group.blocks)) {
+        //                 target.storyboardBlocks.createBlock(block);
 
-        // to update the workspace view
-        this.runtime.requestRedraw();
+        //                 if (block.topLevel && block.opcode.startsWith("event_")) {
+        //                     target.storyboardBlocks._scripts.push(block.id);
+        //                     console.log(`Registered hat block ${block.id} as a script`);
+        //                 }
+        //             }
+        //         }
+        //     });
+        //     console.log(target.storyboardBlocks);
+        // });                         
+
+
+        const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, this.editingTarget.getName());
+        console.log(`Behavior blocks for ${this.editingTarget.getName()}:`, behaviorBlocks);
+        // per block group parse the pseudo code to create blocks
+        behaviorBlocks.forEach(pseudoblocks => {
+            console.log(pseudoblocks);
+            const blocks = parsePseudoCode(pseudoblocks, 
+                Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+                Object.values(this.editingTarget.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
+                this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
+                );
+            for (const group of blocks) {
+                for (const block of Object.values(group.blocks)) {
+                    this.editingTarget.storyboardBlocks.createBlock(block);
+                }
+            }
+        });
+        console.log(this.editingTarget.storyboardBlocks);
 
         return 'response';
     }
@@ -1492,6 +1526,7 @@ ${behavior.relatedSprites.length > 0 ? 'Related Sprites: ' + behavior.relatedSpr
                 for (let i = 0; i < allTargets.length; i++) {
                     const currTarget = allTargets[i];
                     currTarget.blocks.updateAssetName(oldName, newName, 'sprite');
+                    // currTarget.storyboardBlocks.updateAssetName(oldName, newName, 'sprite');
                 }
 
                 if (newUnusedName !== oldName) this.emitTargetsUpdate();
