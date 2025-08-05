@@ -41,100 +41,193 @@ const generateId = function () {
 };
 
 const isNumber = val => /^-?\d+(\.\d+)?$/.test(val);
-const wrapInput = val => (isNumber(val) ? [1, parseFloat(val)] : [1, val]);
+const wrapInputBlock = (value, blocks, typeHint = 'text', knownVariables, parentId) => {
+    const id = generateId();
+    let block;
+
+    const isVariable = knownVariables.find(v => v.name === value)
+    if (isVariable) {
+        return {name: 'VARIABLE', id: isVariable.id, value: isVariable.name, variableType: isVariable.variableType}
+    } else {
+
+        switch (typeHint) {
+            case 'math_number':
+                block = createBlock('math_number', {}, {
+                    NUM: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'positive_number':
+                block = createBlock('math_positive_number', {}, {
+                    NUM: [value && value > 0, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'angle':
+                block = createBlock('math_angle', {}, {
+                    ANGLE: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;    
+            case 'text':
+                block = createBlock('text', {}, {
+                    TEXT: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'color':
+                block = createBlock('colour_picker', {}, {
+                    COLOUR: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'key_option':
+                block = createBlock('sensing_keyoptions', {}, {
+                    KEY_OPTION: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'broadcast_menu':
+                block = createBlock('event_broadcast_menu', {}, {
+                    BROADCAST_OPTION: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'sound_menu':
+                block = createBlock('sound_sounds_menu', {}, {
+                    SOUND_MENU: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'touching_object_menu':
+                block = createBlock('sensing_touchingobjectmenu', {}, {
+                    TOUCHINGOBJECTMENU: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            case 'clone_option':
+                block = createBlock('control_create_clone_of_menu', {}, {
+                    CLONE_OPTION: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+            default:
+                block = createBlock('text', {}, {
+                    TEXT: [value, null]
+                }, { id, shadow: true, parent: parentId });
+                break;
+        }    
+    }
+
+    blocks[id] = block;
+    if (typeHint === 'math_number' && isNumber(value)) {
+        return [4, id]; // 4 is the type for number literals in Scratch
+    }
+    if (typeHint === 'math_positive_number' && isNumber(value) && value > 0) {
+        return [5, id]; // 5 is the type for positive number literals in Scratch
+    }
+    if (typeHint === 'angle' && isNumber(value)) {
+        return [6, id]; // 6 is the type for angle literals in Scratch
+    }
+    if (typeHint === 'color') {
+        return [7, id]; // 7 is the type for angle literals in Scratch
+    }
+    return [1, id];
+};
+
+
 
 /**
  * Parses a condition string and returns an object representing the parsed condition block.
  * @param {string} line - The condition string to parse.
  * @returns {object} Object representing the parsed condition block.
  */
-const parseCondition = function (line) {
+const parseCondition = function (line, blocks, knownVariables, parentId) {
     line = line.trim();
+    const id = generateId();
+    let block;
 
     // Logical operators
     if (line.includes(' or ')) {
         const [left, right] = line.split(' or ');
-        return createBlock('operator_or', {
-            OPERAND1: parseCondition(left),
-            OPERAND2: parseCondition(right)
+        block = createBlock('operator_or', {
+            OPERAND1: parseCondition(left, blocks, knownVariables, id),
+            OPERAND2: parseCondition(right, blocks, knownVariables, id)
         });
     }
 
     if (line.includes(' and ')) {
         const [left, right] = line.split(' and ');
-        return createBlock('operator_and', {
-            OPERAND1: parseCondition(left),
-            OPERAND2: parseCondition(right)
+        block = createBlock('operator_and', {
+            OPERAND1: parseCondition(left, blocks, knownVariables, id),
+            OPERAND2: parseCondition(right, blocks, knownVariables, id)
         });
     }
 
     // Comparisons
     if (line.includes(' = ')) {
         const [left, right] = line.split(' = ');
-        return createBlock('operator_equals', {
-            OPERAND1: wrapInput(left),
-            OPERAND2: wrapInput(right)
+        block = createBlock('operator_equals', {
+            OPERAND1: wrapInputBlock(left, blocks, 'math_number', knownVariables, id),
+            OPERAND2: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)
         });
     }
 
     if (line.includes(' \> ')) {
         const [left, right] = line.split(' \> ');
-        return createBlock('operator_gt', {
-            OPERAND1: wrapInput(left),
-            OPERAND2: wrapInput(right)
+        block = createBlock('operator_gt', {
+            OPERAND1: wrapInputBlock(left, blocks, 'math_number', knownVariables, id),
+            OPERAND2: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)
         });
     }
 
     if (line.includes(' \< ')) {
         const [left, right] = line.split(' \< ');
-        return createBlock('operator_lt', {
-            OPERAND1: wrapInput(left),
-            OPERAND2: wrapInput(right)
+        block = createBlock('operator_lt', {
+            OPERAND1: wrapInputBlock(left, blocks, 'math_number', knownVariables, id),
+            OPERAND2: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)
         });
     }
 
     // Sensing blocks
     if (line.startsWith('key ') && line.includes(' pressed')) {
-        const key = line.match(/key \[(.*)\] pressed/)[1];
-        return createBlock('sensing_keypressed', {
-            KEY_OPTION: [1, key]
+        const key = line.match(/key \[(.*) v\] pressed/)[1];
+        block = createBlock('sensing_keypressed', {
+            KEY_OPTION: wrapInputBlock(key, blocks, 'key_option', knownVariables, id)
         });
     }
 
     if (line.startsWith('touching color ')) {
         const target = line.match(/touching color \((.+)\)/);
-        return createBlock('sensing_touchingcolor', {
-            COLOR: wrapInput(target[1]),
+        block = createBlock('sensing_touchingcolor', {
+            COLOR: wrapInputBlock(target[1], blocks, 'color', knownVariables, id),
         });
     } else if (line.startsWith('touching ')) {
-        const target = line.match(/touching \[(.*)\]/)[1];
-        return createBlock('sensing_touchingobject', {
-            TOUCHINGOBJECTMENU: [1, target]
+        const target = line.match(/touching \[(.*) v\]/)[1];
+        block = createBlock('sensing_touchingobject', {
+            TOUCHINGOBJECTMENU: wrapInputBlock(target, blocks, 'touching_object_menu', knownVariables, id)
         });
     }
 
     if (line.startsWith('not ')) {
         const inner = line.slice(4).trim();
-        return createBlock('operator_not', {
-            OPERAND: parseCondition(inner)
+        block = createBlock('operator_not', {
+            OPERAND: parseCondition(inner, blocks, knownVariables, id)
         });
     }
 
     if (line.includes(' contains ')) {
         const target = line.match(/\((.+)\) contains \((.+)\)\?/);
-        return createBlock('operator_contains', {
-            TEXT: wrapInput(target[1]),
-            SUBSTRING: wrapInput(target[2])
+        block = createBlock('operator_contains', {
+            TEXT: wrapInputBlock(target[1], blocks, 'text', knownVariables, id),
+            SUBSTRING: wrapInputBlock(target[2], blocks, 'text', knownVariables, id)
         });
     }
 
     if (line.includes(' is touching color ')) {
         const target = line.match(/color \((.+)\) is touching color \((.+)\)/);
-        return createBlock('sensing_coloristouchingcolor', {
-            COLOR1: wrapInput(target[1]),
-            COLOR2: wrapInput(target[2])
+        block = createBlock('sensing_coloristouchingcolor', {
+            COLOR1: wrapInputBlock(target[1], blocks, 'color', knownVariables, id),
+            COLOR2: wrapInputBlock(target[2], blocks, 'color', knownVariables, id)
         });
     }
+
+    if (parentId) {
+        block.parent = parentId;
+    }
+
+    blocks[id] = block;
+    return [2, id];
 
 };
 
@@ -142,199 +235,202 @@ const blockPatterns = [
     {
         match: /^say \[(.+)\]$/, // say [Hello!]
         opcode: 'looks_say',
-        inputs: match => ({
-            MESSAGE: wrapInput(match[1])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            MESSAGE: wrapInputBlock(match[1], blocks, 'text', knownVariables, parentId)
         })
     },
     {
         match: /^think \[(.+)\]$/, // think [Hmm...]
         opcode: 'looks_think',
-        inputs: match => ({
-            MESSAGE: wrapInput(match[1])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            MESSAGE: wrapInputBlock(match[1], blocks, 'text', knownVariables, parentId)
         })
     },
     {
         match: /^switch costume to \[(.+?)\]$/,
         opcode: 'looks_switchcostumeto',
-        inputs: match => ({
-            COSTUME: [1, match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            COSTUME: wrapInputBlock(match[1], blocks, 'costume', knownVariables, parentId)
         })
     },
     {
         match: /^change \[(.+?) v\] by \((.+?)\)$/,
         opcode: 'data_changevariableby',
-        inputs: match => ({
-            VALUE: wrapInput(match[2])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            VALUE: wrapInputBlock(match[2], blocks, 'math_number', knownVariables, parentId)
         }),
-        fields: match => ({
-            VARIABLE: [match[1], match[1]]
+        fields: (match, blocks, knownVariables, parentId) => ({
+            // {name: 'VARIABLE', id: 'Al[:dHi#gFpqIbHw/e`g', value: 'Score', variableType: ''}
+            VARIABLE: wrapInputBlock(match[1], blocks, 'data_variable', knownVariables, parentId)
         })
     },
     {
         match: /^set \[(.+?) v\] to \[(.+?)\]$/,
         opcode: 'data_setvariableto',
-        inputs: match => ({
-            VALUE: wrapInput(match[2])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            VALUE: wrapInputBlock(match[2], blocks, 'math_number', knownVariables, parentId)
         }),
-        fields: match => ({
-            VARIABLE: [match[1], match[1]]
+        fields: (match, blocks, knownVariables, parentId) => ({
+            VARIABLE: wrapInputBlock(match[1], blocks, 'data_variable', knownVariables, parentId)
+        })
+    },
+    {
+        match: /^point in direction \((.+?)\)$/,
+        opcode: 'motion_pointindirection',
+        inputs: {},
+        fields: (match, blocks, knownVariables) => ({
+            STYLE: {name: 'STYLE', id: undefined, value: match[1]} // Default direction is left-right, don't rotate, all around
         })
     },
     {
         match: /^set x to \((.+?)\)$/,
         opcode: 'motion_setx',
-        inputs: match => ({
-            X: [1, parseFloat(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            X: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)]
         })
     },
     {
         match: /^set y to \((.+?)\)$/,
         opcode: 'motion_sety',
-        inputs: match => ({
-            Y: [1, parseFloat(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            Y: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)]
         })
     },
     {
         match: /^change x by \((.+?)\)$/,
         opcode: 'motion_changex',
-        inputs: match => ({
-            X: [1, parseFloat(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            DX: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)]
         })
     },
     {
         match: /^change y by \((.+?)\)$/,
         opcode: 'motion_changey',
-        inputs: match => ({
-            Y: [1, parseFloat(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            DY: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)]
         })
     },
     {
         match: /^go to \[(.+?)\]$/, // go to [random position]
         opcode: 'motion_goto',
-        inputs: match => ({
-            TO: [1, match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            TO: [1, wrapInputBlock(match[1], blocks, 'position', knownVariables, parentId)]
         })
     },
     {
         match: /^go to x: \\((.+)\\) y: \\((.+)\\)$/, // go to x: (100) y: (200)
         opcode: 'motion_gotoxy',
-        inputs: match => ({
-            X: [1, match[1]],
-            Y: [1, match[2]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            X: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)],
+            Y: [1, wrapInputBlock(match[2], blocks, 'math_number', knownVariables, parentId)]
         })
     },
     {
         match: /^move \((.+)\) steps$/,
         opcode: 'motion_movesteps',
-        inputs: match => ({
-            STEPS: wrapInput(match[1])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            STEPS: [1, wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)]
         })
-    },
+    },   
     {
         match: /^turn (left|right) \((.+?)\) degrees$/,
         opcode: match => (match[1] === 'left' ? 'motion_turnleft' : 'motion_turnright'),
-        inputs: match => ({
-            DEGREES: wrapInput(match[2])
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            DEGREES: wrapInputBlock(match[2], blocks, 'math_number', knownVariables, parentId)
         }),
-        fields: match => ({
-            DIRECTION: [match[1], match[1]]
+        fields: (match, blocks, knownVariables, parentId) => ({
+            DIRECTION: wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)
         })
     },
     {
         match: /^broadcast \[(.+?) v\]$/,
         opcode: 'event_broadcast',
-        inputs: match => ({
-            BROADCAST_INPUT: [1, match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            BROADCAST_INPUT: wrapInputBlock(match[1], blocks, "broadcast_menu", knownVariables, parentId)
         }),
-        fields: match => ({
-            BROADCAST_OPTION: [match[1], match[1]]
-        })
     },
     {
         match: /^broadcast \[(.+?) v\] and wait$/,
         opcode: 'event_broadcastandwait',
-        inputs: match => ({
-            BROADCAST_INPUT: [1, match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            BROADCAST_INPUT: wrapInputBlock(match[1], blocks, "broadcast_menu", knownVariables, parentId)
         }),
-        fields: match => ({
-            BROADCAST_OPTION: [match[1], match[1]]
-        })
     },
     {
         match: /^create clone of \[(.+?)\]$/,
         opcode: 'control_create_clone_of',
-        inputs: match => ({
-            CLONE_OPTION: [1, match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            CLONE_OPTION: [1, wrapInputBlock(match[1], blocks, 'clone_menu', knownVariables, parentId)]
         })
     },
     {
         match: /^delete this clone$/,
-        opcode: 'control_delete_this_clone'
+        opcode: 'control_delete_this_clone',
+        inputs: (match, blocks, knownVariables, parentId) => ({})
     },
     {
         match: /^stop ((all|this script|other scripts in sprite))$/,
         opcode: 'control_stop',
-        inputs: match => ({
-            STOP_OPTION: ["all", match[1]]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            STOP_OPTION: ["all", wrapInputBlock(match[1], blocks, knownVariables, parentId)]
         })
     },
     {
         match: /^wait \((.+?)\) seconds$/,
         opcode: 'control_wait',
-        inputs: match => ({
-            DURATION: [1, parseFloat(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            DURATION: [1, wrapInputBlock(match[5], blocks, 'math_positive_number', knownVariables, parentId)]
         })
     },
     {
         match: /^wait until <(.+?)>$/,
         opcode: 'control_wait_until',
-        inputs: match => ({
-            CONDITION: [2, parseCondition(match[1])]
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            CONDITION: parseCondition(match[1], blocks, knownVariables, parentId)
         })
     },
     {
         match: /^stop all sounds$/,
-        opcode: 'sound_stopallsounds'
+        opcode: 'sound_stopallsounds',
+        inputs: (match, blocks, knownVariables) => ({})
     },
     {
         match: /^play sound \[(.+?) v\]$/,
         opcode: 'sound_play',
-        inputs: match => ({
-            SOUND_MENU: [1, match[1]] // match[1] actually id of child: sound_sounds_menu child with name of the sound
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            SOUND_MENU: wrapInputBlock(match[1], blocks, "sound_menu", knownVariables, parentId)
         })
     },
     {
         match: /^play sound \\((.+) v\\) until done/,
         opcode: 'sound_playuntildone',
-        inputs: match => ({
-            SOUND_MENU: [1, match[1]] // sound_sounds_menu child with name of the sound
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            SOUND_MENU: wrapInputBlock(match[1], blocks, "sound_menu", knownVariables, parentId)
         })
     },
     {
         match: /hide/,
         opcode: 'looks_hide',
-        inputs: match => ({})
+        inputs: (match, blocks, knownVariables) => ({})
     },
     {
         match: /show/,
         opcode: 'looks_show',
-        inputs: match => ({})
+        inputs: (match, blocks, knownVariables) => ({})
     },
-    {
-        match: /([-+]?\d*\.?\d+)/,
-        opcode: 'math_number',
-        fields: match => ({
-            NUM: [1, parseFloat(match[0])]
-        }),
-    }
+
 ];
 
 /**
 * Parses pseudo code into a structured format that can be used to create blocks in Scratch.
 * @param {string}  code "pseudo code"
+* @param {Array<object>}  globalVariables "global variables names and ids"
+* @param {Array<object>}  localVariables "local variables names and ids"
+* @param {Array<object>}  targets "targets names and ids"
 * @returns {Array<object>} Array of script objects representing parsed blocks.
 */
-const parsePseudoCode = function (code) {
+const parsePseudoCode = function (code, globalVariables = [], localVariables = [], targets = []) {
+    const knownVariables = [...globalVariables, ...localVariables];
     const lines = code.split('\n').map(line => line.trim())
         .filter(Boolean);
     const stack = [];
@@ -348,14 +444,21 @@ const parsePseudoCode = function (code) {
         if (line === 'end') {
             if (matched && stack.length > 0) {
                 const context = stack.pop();
-                const childBlocks = connectBlocks(context.children);
-                currentScript.blocks[context.id] = context.block;
-                currentScript.blocks[context.id].inputs.SUBSTACK = [2, childBlocks[0]];
-                for (let i = 0; i < childBlocks.length; i++) {
-                    currentScript.blocks[childBlocks[i].id] = childBlocks[i];
+
+                // If the context has children, wire them as a SUBSTACK
+                if (context.children.length > 0) {
+                    context.block.inputs.SUBSTACK = [2, context.children[0].id];
+                    context.children[0].parent = context.block.id;
+                    connectBlocks(context.children);
                 }
-                stack[stack.length - 1]?.children.push(context.block);
-            } else {
+
+                // Set the parent field for the closed control block***
+                if (stack.length > 0) {
+                    context.block.parent = stack[stack.length - 1].id;
+                }
+
+            }
+            else {
                 console.warn('At least one line did not match before "end"');
                 return [];
             }
@@ -401,7 +504,8 @@ const parsePseudoCode = function (code) {
                 matched = false;
             }
 
-            currentScript.blocks[id] = createBlock(blockType, fields, inputs, { id }, {
+            currentScript.blocks[id] = createBlock(blockType, inputs, fields, {
+                id: id,
                 shadow: false,
                 topLevel: true,
                 x: 100,
@@ -412,6 +516,7 @@ const parsePseudoCode = function (code) {
             const id = generateId();
             const block = createBlock('control_forever', {}, {}, { id });
             currentScript.blocks[id] = block;
+            stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
             matched = true;
         } else if (/^repeat\s*\((.+?)\)/.test(line)) {
@@ -420,30 +525,29 @@ const parsePseudoCode = function (code) {
             const id = generateId();
             const block = createBlock('control_repeat', { TIMES: [1, [10, times]] }, {}, { id });
             currentScript.blocks[id] = block;
+            stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
             matched = true;
         } else if (/^repeat until\s*<(.+?)>/.test(line)) {
             const match = line.match(/^repeat until\s*<(.+?)>/);
             const conditionText = match[1];
             const id = generateId();
-            const conditionBlock = parseCondition(conditionText);
             const block = createBlock('control_repeat_until', {
-                CONDITION: [2, conditionBlock]
+                CONDITION: parseCondition(conditionText, currentScript.blocks, knownVariables, id)
             }, {}, { id });
             currentScript.blocks[id] = block;
+            stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
             matched = true;
         } else if (line.startsWith('if')) {
             if (line.match(/if\s*<(.+?)>\s*then/)) {
-                const condition = line.match(/if\s*<(.+?)>\s*then/)[1];
-                const conditionBlock = parseCondition(condition);
-                const conditionId = generateId();
                 const id = generateId();
+                const condition = line.match(/if\s*<(.+?)>\s*then/)[1];
                 const block = createBlock('control_if', {
-                    CONDITION: [2, conditionId]
+                    CONDITION: parseCondition(condition, currentScript.blocks, knownVariables, id)
                 }, {}, { id });
                 currentScript.blocks[id] = block;
-                currentScript.blocks[conditionId] = conditionBlock;
+                stack[stack.length - 1]?.children.push(block);
                 stack.push({ id, block, children: [] });
                 matched = true;
             } else {
@@ -494,13 +598,13 @@ const parsePseudoCode = function (code) {
             for (const pattern of blockPatterns) {
                 const match = line.match(pattern.match);
                 if (match) {
-                    console.log(`Matched pattern: ${pattern.opcode}`);
                     const id = generateId();
                     const opcode = typeof pattern.opcode === 'function' ? pattern.opcode(match) : pattern.opcode;
-                    const inputs = pattern.inputs ? pattern.inputs(match) : {};
-                    const fields = pattern.fields ? pattern.fields(match) : {};
+                    const inputs = pattern.inputs ? pattern.inputs(match, currentScript.blocks, knownVariables, id) : {};
+                    const fields = pattern.fields ? pattern.fields(match, currentScript.blocks, knownVariables, id) : {};
 
-                    currentScript.blocks[id] = createBlock(opcode, inputs, fields, { id }, {
+                    currentScript.blocks[id] = createBlock(opcode, inputs, fields, {
+                        id: id,
                         shadow: false,
                         topLevel: false
                     });
@@ -511,18 +615,34 @@ const parsePseudoCode = function (code) {
                 matched = false; 
             }
         }
+        console.log(Object.values(currentScript.blocks));
+        console.log(stack.length);
         console.log(matched);
     }
 
     if (currentScript) {
         // Connect top-level blocks outside any control block
-        const topLevelBlocks = Object.values(currentScript.blocks)
-            .filter(b => !b.parent && !b.topLevel && !b.shadow);
+        // Only include blocks not already referenced in any inputs
+        const usedBlockIds = new Set();
 
-        const connectedTopLevel = connectBlocks(topLevelBlocks);
-        for (const block of connectedTopLevel) {
-            currentScript.blocks[block.id] = block;
+        // Collect all blocks referenced as inputs (e.g. SUBSTACKs or CONDITIONs)
+        for (const block of Object.values(currentScript.blocks)) {
+            for (const input of Object.values(block.inputs || {})) {
+                if (Array.isArray(input) && typeof input[1] === 'string') {
+                    usedBlockIds.add(input[1]);
+                }
+            }
         }
+
+        const topLevelBlocks = Object.values(currentScript.blocks)
+            .filter(b =>
+                !usedBlockIds.has(b.id) &&
+                !b.topLevel && !b.shadow &&
+                b.id !== currentScript.topBlock &&
+                !b.parent
+            );
+
+        connectBlocks(topLevelBlocks);
 
         // Attach first to event block
         const topEvent = currentScript.blocks[currentScript.topBlock];
