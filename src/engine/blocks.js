@@ -594,6 +594,43 @@ class Blocks {
                 this.emitProjectChanged();
             }
             break;
+        case 'comment_feedback':
+            if (this.runtime.getEditingTarget()){
+                const currTarget = this.runtime.getEditingTarget();
+
+                const commentId = e.commentId;
+                const comment = currTarget.comments[commentId];
+
+                if (!comment) {
+                    log.warn(`Cannot get feedback for comment with id ${commentId} because it does not exist.`);
+                    return;
+                }
+
+                if (typeof this.runtime.requestCommentFeedback === 'function') {
+                    const maybePromise = this.runtime.requestCommentFeedback(commentId);
+
+                    if (maybePromise && typeof maybePromise.then === 'function') {
+                        maybePromise.then(feedbackText => {
+                            if (typeof e.callback === 'function') {
+                                if (comment.height < 150) {
+                                    comment.height = 2 * comment.height;
+                                }
+                                e.callback(feedbackText);
+                            }
+                            this.emitProjectChanged();
+                        }).catch(err => {
+                            log.warn('Failed to get feedback:', err);
+                        });
+                    } else {
+                        // Fallback for non-async case
+                        if (typeof e.callback === 'function') {
+                            e.callback(maybePromise);
+                        }
+                        this.emitProjectChanged();
+                    }
+                }
+            }
+            break;
         }
     }
 

@@ -610,7 +610,8 @@ const parseScratchObject = function (object, runtime, extensions, topLevel, zip,
                 isBlockComment ? null : commentY * WORKSPACE_Y_SCALE,
                 commentWidth * WORKSPACE_X_SCALE,
                 commentHeight * WORKSPACE_Y_SCALE,
-                !commentFullSize
+                !commentFullSize, 
+                false // isBlockComment is false for workspace comments
             );
             if (isBlockComment) {
                 // commentDesc[5] refers to the index of the block that this

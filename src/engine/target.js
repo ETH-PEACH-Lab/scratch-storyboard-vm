@@ -61,6 +61,12 @@ class Target extends EventEmitter {
          */
         this.comments = {};
         /**
+         * Dictionary of comments for this target.
+         * Key is the comment id.
+         * @type {Object.<string,*>}
+         */
+        this.storyboardComments = {};
+        /**
          * Dictionary of custom state for this target.
          * This can be used to store target-specific custom state for blocks which need it.
          * TODO: do we want to persist this in SB3 files?
@@ -294,7 +300,7 @@ class Target extends EventEmitter {
     createComment (id, blockId, text, x, y, width, height, minimized) {
         if (!Object.prototype.hasOwnProperty.call(this.comments, id)) {
             const newComment = new Comment(id, text, x, y,
-                width, height, minimized);
+                width, height, minimized, false);
             if (blockId) {
                 newComment.blockId = blockId;
                 const blockWithComment = this.blocks.getBlock(blockId);
@@ -305,6 +311,25 @@ class Target extends EventEmitter {
                     } associated with commentId: ${id}`);
                 }
             }
+            this.comments[id] = newComment;
+        }
+    }
+
+        /**
+     * Creates a comment with the given properties.
+     * @param {string} id Id of the comment.
+     * @param {string} text The text the comment contains.
+     * @param {number} x The x coordinate of the comment on the workspace.
+     * @param {number} y The y coordinate of the comment on the workspace.
+     * @param {number} width The width of the comment when it is full size
+     * @param {number} height The height of the comment when it is full size
+     * @param {boolean} minimized Whether the comment is minimized.
+     */
+    createStoryboardComment (id, text, x, y, width, height, minimized, storyboardComment = true) {
+        if (!Object.prototype.hasOwnProperty.call(this.comments, id)) {
+            const newComment = new Comment(id, text, x, y,
+                width, height, minimized, storyboardComment);
+            // this.storyboardComments[id] = newComment;
             this.comments[id] = newComment;
         }
     }

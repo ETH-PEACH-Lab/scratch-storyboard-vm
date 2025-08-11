@@ -298,13 +298,14 @@ Here is the complete list of pseudo code blocks, only uses these to create the p
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
     [block.opcode]: block.pseudocode
 })), null, 2)}
-At the end of any c-block, like forever, repeat, if, there must be a line with 'end'.
-Variables, sprite, costume and sound names should always be in round brackets ().
+At the end of any c-block, like forever, repeat, if, there must be a line with 'end'. Conditions must be in this format: <CONDITION>.
+Variables, sprite, costume and sound names as well as numbers should always be in round brackets (). See the examples below and the list above.
 Anything in brackets should either be a variable mentioned like a name or a number or a string where it makes sense. Escape < and >, if you want to use them as greater or smaller than.
 Do not mention the sprite name in the pseudo code, just use the blocks as they are. Only use other sprites names that relate to it if needed.
 Do not write any text before or after the pseudo code! Just the pseudo code blocks in the format of the example below. Start a new package of blocks/lines with a when block. Do not use any backticks or other formatting!
 
-Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked':
+Here are example of description and their possible pseudocode. 
+Example 1: 'jumping on space key pressed'
 
 when [space v] key pressed
 repeat (10)
@@ -314,11 +315,99 @@ repeat (10)
     change y by (-10)
 end
 
+Example 2: 'reset score and moving to starting position on green flag clicked'
+
 when @greenFlag clicked
 go to x: (-180) y: (-130)
-set [Punkte v] to [0]
+set [Score v] to [0]
+
+Example 3: 'fall from the top to the bottom of the screen and when touching the floor got to a random position on the top of the screen'
+
+when @greenFlag clicked
+forever
+    if <(y position) \< (-150)> then
+        go to x: (pick random (-240) to (240)) y: (180)
+    end
+    change y by (10)
+end
+
+Example 4 with two solutions: 'when the green flag is clicked, hide and when Score is greater than 10 show and play a sound'
+
+when @greenFlag clicked
+forever
+    if <(Score) \> (10)> then
+        show
+        play sound [pop v]
+    else
+        hide    
+    end
+end
+
+or 
+
+when @greenFlag clicked
+hide
+wait until <(Score) \> (10)>
+show
+play sound [pop v]
+
+Example 5 with two solutions: 'when the green flag is clicked, hide and when Score is greater than 10 show and play a sound and end the game'
+
+when @greenFlag clicked
+forever
+    if <(Score) \> (10)> then
+        show
+        play sound [pop v]
+        end
+    else
+        hide    
+    end
+end
+
+or
+
+when @greenFlag clicked
+hide
+wait until <(Score) \> (10)>
+show
+play sound [pop v]
+stop all
 `;
-    }     
+
+    }    
+    
+    
+const pseudoCodePrompt = function (vm, behavior) {
+    return `You are a Scratch-pseudocode generator. You generate based on a behavior description of a sprite.
+Here is a behavior description of the sprite ${vm.editingTarget.getName()}:
+${behavior.description}
+
+Follow these rules exactly for the pseudocode:
+
+1. **Block types**:
+   - **Stack/command blocks**: Write normally, one per line (e.g. move (10) steps).
+   - **Reporter blocks**: Wrap in parentheses: (x position).
+   - **Boolean blocks**: Wrap in angle brackets: <mouse down?>.
+   - **Hat/cap blocks**: Select the correct pseudocode from the list below with a key like event_when ...
+
+2. **Block list** (must use exact names and formatting). Here are examples (longer list follows):
+   - **Motion**: move (10) steps, turn cw (15) degrees, point in direction (90 v), go to x: (0) y: (0), go to (random position v), etc.
+   - **Looks**: say [Hello!] for (2) secs, think [Hmm...] for (2) secs, show, hide, etc.
+   - **Control**: wait (1) secs, repeat (10), forever, if <> then, if <> then else, wait until <>, stop [all v], etc.
+   - **Sensing**, **Operators**, **Sound**, **Variables**, **Lists** — use the exact block names as in the full block list below.
+
+3. **Block formatting**:
+   - Inputs: use parentheses (value), brackets [text], and angle brackets <condition?> according to block type.
+   - Nest and indent blocks correctly, and close if, forever, repeat, loops, etc., with end. All c-blocks must end with an end line.
+
+Full supported block list equivalent to scratchblocks:
+${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
+    [block.opcode]: block.pseudocode
+})), null, 2)}
+
+Only output the scratch pseudocode. Do not add explanations or commentary! No backticks or other formatting!
+`;
+}    
 
 module.exports = {
     understandingFeedbackPrompt,
@@ -327,5 +416,6 @@ module.exports = {
     goodEnoughPrompt,
     rewritingPrompt,
     translationPrompt, 
-    pseudocodePrompt
+    pseudocodePrompt,
+    pseudoCodePrompt
 };    

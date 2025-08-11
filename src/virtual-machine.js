@@ -27,7 +27,7 @@ require('canvas-toBlob');
 const fetch = require('node-fetch');
 const parsePseudoCode = require('./engine/pseudocode-parser');
 const exampleblocks = require('./exampleblocks.json');
-const {understandingFeedbackPrompt, planningFeedbackPrompt, statusFeedbackPrompt, goodEnoughPrompt, translationPrompt, pseudocodePrompt} = require('./engine/prompts')
+const {understandingFeedbackPrompt, planningFeedbackPrompt, statusFeedbackPrompt, goodEnoughPrompt, translationPrompt, pseudocodePrompt, pseudoCodePrompt} = require('./engine/prompts')
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -60,6 +60,9 @@ class VirtualMachine extends EventEmitter {
             log.error(`Failed to register runtime service: ${JSON.stringify(e)}`);
         });
 
+        this.runtime.requestCommentFeedback = (commentId) => {
+            return this.getBehaviorFeedback(commentId);
+        };
         /**
          * The "currently editing"/selected target ID for the VM.
          * Block events from any Blockly workspace are routed to this target.
@@ -1186,11 +1189,21 @@ class VirtualMachine extends EventEmitter {
             behavior.clarification = responseObject.clarification;
             behavior.explanation = responseObject.explanation;
             behavior.description = responseObject.description;  
-
+            this.editingTarget.comments[id].feedback = 'Description: ' + (behavior.is_specific ? behavior.description : 'not specific enough') 
+            + '\n\nExplanation: ' + behavior.explanation 
+            + '\n\nClarification: ' + (behavior.is_specific ? 'no clarification needed' : behavior.clarification)
+            this.emitTargetsUpdate();
+            // this.emitWorkspaceUpdate();
+            let parsing = null;
             if (behavior.is_specific) {
-                this.generateBlocks(behavior);
+                parsing = await this.generateBlocks(behavior);
+                behavior.parsing = parsing;
+                responseObject.parsing = parsing;
+                this.editingTarget.comments[id].feedback += (parsing && parsing == "Failure" ? '\n\n! Failed to generate a parsable pseudocode. Retry feedback if you want to try in storyboard mode' : '');
+                this.emitTargetsUpdate();
             }
-            return jsonResponse;
+            // this.emitWorkspaceUpdate();
+            return responseObject;
         } catch (e) {
             console.error('Error parsing JSON response:', e);
             return response;
@@ -1199,7 +1212,8 @@ class VirtualMachine extends EventEmitter {
 
     // generating blocks for one behavio
     async generateBlocks (behavior) {
-        const prompt = pseudocodePrompt(this, behavior);
+        // const prompt = pseudocodePrompt(this, behavior);
+        const prompt = pseudoCodePrompt(this, behavior);
         console.log(new Date().toISOString());
         const response = await this.callOllama(prompt);
         console.log(new Date().toISOString());
@@ -1212,17 +1226,19 @@ class VirtualMachine extends EventEmitter {
             Object.values(this.editingTarget.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
             this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
             );
-
-        for (const group of scratchblocks) {
-            for (const block of Object.values(group.blocks)) {
-                this.editingTarget.storyboardBlocks.createBlock(block);
+        if (scratchblocks.length > 0) {
+            for (const group of scratchblocks) {
+                for (const block of Object.values(group.blocks)) {
+                    this.editingTarget.storyboardBlocks.createBlock(block);
+                }
             }
+            console.log(this.editingTarget.storyboardBlocks);
+            return 'Success';
+        } else {
+            return 'Failure';
         }
-        console.log(this.editingTarget.storyboardBlocks);
-        return 'response';
+        
     }
-
-    // more examples to create correct pseudo code: for conditions and so on.
 
     /**
      * Parses the description of the project and converts it to blocks.
@@ -1241,31 +1257,31 @@ class VirtualMachine extends EventEmitter {
         // });
         // console.log('Example blocks created:', this.editingTarget.storyboardBlocks);
 
-        // const prompt = translationPrompt(this);
-        // console.log(new Date().toISOString());
-        // const response = await this.callOllama(prompt);
-        // console.log(new Date().toISOString());
-        // const feedbackResponse = response.response;
-        // console.log(feedbackResponse);
+        const prompt = translationPrompt(this);
+        console.log(new Date().toISOString());
+        const response = await this.callOllama(prompt);
+        console.log(new Date().toISOString());
+        const feedbackResponse = response.response;
+        console.log(feedbackResponse);
 
-        // for testing parser
-        const feedbackResponse = `**Bowl**
-when @greenFlag clicked
-forever
-    if <key [right arrow v] pressed?> then
-        change x by (10)
-    end
-    if <key [left arrow v] pressed?> then
-        change x by (-10)
-    end
-end
+//         // for testing parser
+//         const feedbackResponse = `**Bowl**
+// when @greenFlag clicked
+// forever
+//     if <key [right arrow v] pressed?> then
+//         change x by (10)
+//     end
+//     if <key [left arrow v] pressed?> then
+//         change x by (-10)
+//     end
+// end
 
-when @greenFlag clicked
-forever
-    if <touching [Golden Apple v]?> then
-        change [Score v] by (2)
-    end
-end`;
+// when @greenFlag clicked
+// forever
+//     if <touching [Golden Apple v]?> then
+//         change [Score v] by (2)
+//     end
+// end`;
 
         this.storyboardOverall.globalVariables.forEach((variable) => this.runtime.createNewGlobalVariable(variable));
         // this.runtime.targets.forEach(target => {
@@ -1292,7 +1308,6 @@ end`;
         //     });
         //     console.log(target.storyboardBlocks);
         // });                         
-
 
         const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, this.editingTarget.getName());
         console.log(`Behavior blocks for ${this.editingTarget.getName()}:`, behaviorBlocks);
@@ -1907,7 +1922,9 @@ ${behavior.relatedSprites.length > 0 ? 'Related Sprites: ' + behavior.relatedSpr
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
-
+        Object.entries(this.editingTarget.comments).filter(([key, value]) => key.includes('story')).forEach(([key, value]) => {
+            value.storyboardComment = true;
+        });
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
                                 ${globalVariables.map(v => v.toXML()).join()}

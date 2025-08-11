@@ -441,7 +441,7 @@ const pseudoOpcode = {
     },
     "event_whenkeypressed": {
         "opcode": "event_whenkeypressed",               
-        "pseudocode": "when key (KEY) pressed",
+        "pseudocode": "when key (KEY v) pressed",
         "regex": "^when key \\((.+)\\) pressed$",
         "category": "event",    
         "blockType": "hat",
@@ -678,8 +678,8 @@ const pseudoOpcode = {
     },
     "sensing_keypressed": {
         "opcode": "sensing_keypressed",
-        "pseudocode": "key (KEY) pressed?",
-        "regex": "^key \\((.+)\\) pressed\\?$",
+        "pseudocode": "key (KEY v) pressed?",
+        "regex": "^key \\((.+) v\\) pressed\\?$",
         "category": "sensing",
         "blockType": "boolean",
         "inputs": {
@@ -858,8 +858,8 @@ const pseudoOpcode = {
     },
     "operator_lt": {
         "opcode": "operator_lt",
-        "pseudocode": "(NUM1) < (NUM2)?",
-        "regex": "^\\((.+)\\) < \\((.+)\\)$",
+        "pseudocode": "(NUM1) \< (NUM2)?",
+        "regex": "^\\((.+)\\) \< \\((.+)\\)$",
         "category": "operators",
         "blockType": "boolean", 
         "inputs": {
@@ -880,8 +880,8 @@ const pseudoOpcode = {
     },
     "operator_gt": {
         "opcode": "operator_gt",
-        "pseudocode": "(NUM1) > (NUM2)?",
-        "regex": "^\\((.+)\\) > \\((.+)\\)$",
+        "pseudocode": "(NUM1) \> (NUM2)?",
+        "regex": "^\\((.+)\\) \> \\((.+)\\)$",
         "category": "operators",
         "blockType": "boolean",
         "inputs": {

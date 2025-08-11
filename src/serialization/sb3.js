@@ -1053,7 +1053,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 comment.y,
                 comment.width,
                 comment.height,
-                comment.minimized
+                comment.minimized,
+                comment.storyboardComment ? comment.storyboardComment : false
             );
             if (comment.blockId) {
                 newComment.blockId = comment.blockId;

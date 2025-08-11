@@ -41,7 +41,6 @@ const generateId = function () {
         .substr(2, 20);
 };
 
-const isNumber = val => /^-?\d+(\.\d+)?$/.test(val);
 const wrapInputBlock = (value, blocks, typeHint = 'text', knownVariables, parentId) => {
     const id = generateId();
     let block;
@@ -111,11 +110,87 @@ const wrapInputBlock = (value, blocks, typeHint = 'text', knownVariables, parent
                 block = createBlock(id, 'looks_costume', {}, {
                     COSTUME: {name: 'COSTUME', value: value}
                 }, { id, shadow: true, parent: parentId });
-                break;    
+                break;   
             default:
-                block = createBlock(id, 'text', {}, {
-                    TEXT: {name: 'TEXT', value: value}
-                }, { id, shadow: true, parent: parentId });
+                // Arithmetic Operators: +, -, *, /
+                const binaryMathMatch = value.match(/^(.+)\s*([\+\-\*\/])\s*(.+)$/);
+                if (binaryMathMatch) {
+                    const left = binaryMathMatch[1];
+                    const op = binaryMathMatch[2];
+                    const right = binaryMathMatch[3];
+                    let opcode;
+                    switch (op) {
+                        case '+': opcode = 'operator_add'; break;
+                        case '-': opcode = 'operator_subtract'; break;
+                        case '*': opcode = 'operator_multiply'; break;
+                        case '/': opcode = 'operator_divide'; break;
+                    }
+                    block = createBlock(id, opcode, {
+                        NUM1: {name: 'NUM1', block: wrapInputBlock(left, blocks, 'math_number', knownVariables, id)},
+                        NUM2: {name: 'NUM2', block: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Modulo: `a mod b`
+                else if (value.match(/^(.+)\s+mod\s+(.+)$/)) {
+                    const [, a, b] = value.match(/^(.+)\s+mod\s+(.+)$/);
+                    block = createBlock(id, 'operator_mod', {
+                        NUM1: {name: 'NUM1', block: wrapInputBlock(a, blocks, 'math_number', knownVariables, id)},
+                        NUM2: {name: 'NUM2', block: wrapInputBlock(b, blocks, 'math_number', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Round: round(x)
+                else if (value.match(/^round\s*\((.+)\)$/)) {
+                    const [, arg] = value.match(/^round\s*\((.+)\)$/);
+                    block = createBlock(id, 'operator_round', {
+                        NUM: {name: 'NUM', block: wrapInputBlock(arg, blocks, 'math_number', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Join: join(x, y)
+                else if (value.match(/^join\s*\((.+),\s*(.+)\)$/)) {
+                    const [, a, b] = value.match(/^join\s*\((.+),\s*(.+)\)$/);
+                    block = createBlock(id, 'operator_join', {
+                        STRING1: {name: 'STRING1', block: wrapInputBlock(a, blocks, 'text', knownVariables, id)},
+                        STRING2: {name: 'STRING2', block: wrapInputBlock(b, blocks, 'text', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Length of: length of(x)
+                else if (value.match(/^length of\s*\((.+)\)$/)) {
+                    const [, str] = value.match(/^length of\s*\((.+)\)$/);
+                    block = createBlock(id, 'operator_length', {
+                        STRING: {name: 'STRING', block: wrapInputBlock(str, blocks, 'text', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Pick random: pick random (a) to (b)
+                else if (value.match(/^pick random\s*\((.+)\)\s*to\s*\((.+)\)$/)) {
+                    const [, a, b] = value.match(/^pick random\s*\((.+)\)\s*to\s*\((.+)\)$/);
+                    block = createBlock(id, 'operator_pickrandom', {
+                        FROM: {name: 'FROM', block: wrapInputBlock(a, blocks, 'math_number', knownVariables, id)},
+                        TO: {name: 'TO', block: wrapInputBlock(b, blocks, 'math_number', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Letter of: letter n of x
+                else if (value.match(/^letter\s+(\d+)\s+of\s+(.+)$/)) {
+                    const [, letter, str] = value.match(/^letter\s+(\d+)\s+of\s+(.+)$/);
+                    block = createBlock(id, 'operator_letter_of', {
+                        LETTER: {name: 'LETTER', block: wrapInputBlock(letter, blocks, 'whole_number', knownVariables, id)},
+                        STRING: {name: 'STRING', block: wrapInputBlock(str, blocks, 'text', knownVariables, id)}
+                    }, {}, {id, parent: parentId});
+                }
+                // Math functions: sqrt of x, abs of x, etc.
+                else if (value.match(/^(abs|floor|ceiling|sqrt|sin|cos|tan|asin|acos|atan|ln|log|e^|10\^)\s+of\s+(.+)$/)) {
+                    const [, func, arg] = value.match(/^(abs|floor|ceiling|sqrt|sin|cos|tan|asin|acos|atan|ln|log|e\^|10\^)\s+of\s+(.+)$/);
+                    block = createBlock(id, 'operator_mathop', {
+                        NUM: {name: 'NUM', block: wrapInputBlock(arg, blocks, 'math_number', knownVariables, id)}
+                    }, {
+                        OPERATOR: {name: 'OPERATOR', value: func}
+                    }, {id, parent: parentId});
+                }
+
+                else {
+                    block = createBlock(id, 'text', {}, {
+                        TEXT: {name: 'TEXT', value: value}
+                    }, { id, shadow: true, parent: parentId });
+                }
                 break;
         }    
     }
@@ -125,7 +200,7 @@ const wrapInputBlock = (value, blocks, typeHint = 'text', knownVariables, parent
     return id;
 };
 
-
+const isPureNumber = val => /^-?\d+(\.\d+)?$/.test(val.trim());
 
 /**
  * Parses a condition string and returns an object representing the parsed condition block.
@@ -158,42 +233,42 @@ const parseCondition = function (line, blocks, knownVariables, parentId) {
     if (line.includes(' = ')) {
         const [left, right] = line.split(' = ');
         block = createBlock(id, 'operator_equals', {
-            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, 'math_number', knownVariables, id)},
-            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)}
+            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, isPureNumber(left) ? 'math_number' : '', knownVariables, id)},
+            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, isPureNumber(right) ? 'math_number' : '', knownVariables, id)}
         });
     }
 
     if (line.includes(' \> ')) {
         const [left, right] = line.split(' \> ');
         block = createBlock(id, 'operator_gt', {
-            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, 'math_number', knownVariables, id)},
-            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)}
+            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, isPureNumber(left) ? 'math_number' : '', knownVariables, id)},
+            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, isPureNumber(right) ? 'math_number' : '', knownVariables, id)}
         });
     }
 
     if (line.includes(' \< ')) {
         const [left, right] = line.split(' \< ');
         block = createBlock(id, 'operator_lt', {
-            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, 'math_number', knownVariables, id)},
-            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, 'math_number', knownVariables, id)}
+            OPERAND1: {name: 'OPERAND1', block: wrapInputBlock(left, blocks, isPureNumber(left) ? 'math_number' : '', knownVariables, id)},
+            OPERAND2: {name: 'OPERAND2', block: wrapInputBlock(right, blocks, isPureNumber(right) ? 'math_number' : '', knownVariables, id)}
         });
     }
 
     // Sensing blocks
-    if (line.startsWith('key ') && line.includes(' pressed')) {
-        const key = line.match(/key \[(.*) v\] pressed/)[1];
+    if (line.match(/key \((.*) v\) pressed?/)) {
+        const key = line.match(/key \((.*) v\) pressed/)[1];
         block = createBlock(id, 'sensing_keypressed', {
             KEY_OPTION: {name: 'KEY_OPTION', block: wrapInputBlock(key, blocks, 'key_option', knownVariables, id)}
         });
     }
 
-    if (line.startsWith('touching color ')) {
+    if (line.match(/touching color \((.+)\)/)) {
         const target = line.match(/touching color \((.+)\)/);
         block = createBlock(id, 'sensing_touchingcolor', {
             COLOR: {name: 'COLOR', block: wrapInputBlock(target[1], blocks, 'color', knownVariables, id)}
         });
-    } else if (line.startsWith('touching ')) {
-        const target = line.match(/touching \[(.*) v\]/)[1];
+    } else if (line.match(/touching \((.*) v\)/)) {
+        const target = line.match(/touching \((.*) v\)/)[1];
         block = createBlock(id, 'sensing_touchingobject', {
             TOUCHINGOBJECTMENU: {name: 'TOUCHINGOBJECTMENU', block: wrapInputBlock(target, blocks, 'touching_object_menu', knownVariables, id)}
         });
@@ -222,11 +297,13 @@ const parseCondition = function (line, blocks, knownVariables, parentId) {
         });
     }
 
-    if (parentId) {
-        block.parent = parentId;
-    }
+    if (block) {
+        if (parentId) {
+            block.parent = parentId;
+        }
 
-    blocks[id] = block;
+        blocks[id] = block;
+    }
     return id;
 
 };
@@ -438,6 +515,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
 
     let currentScript = null;
     let matched = true;
+    let matched_this = true;
 
     for (let line of lines) {
         console.log(line)
@@ -476,9 +554,10 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
             let blockType = '';
             let fields = {};
             let inputs = {};
+            matched_this = true;
 
             // Match different kinds of 'when' blocks
-            if (line === 'when @greenFlag clicked' || line === 'when green flag clicked') {
+            if (line === 'when @greenFlag clicked' || line === 'when green flag clicked' || line === 'when flag clicked') {
                 blockType = 'event_whenflagclicked';
             } else if (line === 'when this sprite clicked') {
                 blockType = 'event_whenthisspriteclicked';
@@ -501,23 +580,23 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                 inputs = { VALUE: [1, [10, match[2]]] }; // assuming type 10 is number literal
             } else {
                 console.warn(`Unrecognized when block: "${line}"`);
-                matched = false;
+                matched_this = false;
             }
-
-            currentScript.blocks[id] = createBlock(id, blockType, inputs, fields, {
-                shadow: false,
-                topLevel: true,
-                x: 100,
-                y: 150
-            });
-            matched = true;
+            if (matched_this) {
+                currentScript.blocks[id] = createBlock(id, blockType, inputs, fields, {
+                    shadow: false,
+                    topLevel: true,
+                    x: 100,
+                    y: 150
+                });
+            }
         } else if (line === 'forever') {
             const id = generateId();
             const block = createBlock(id, 'control_forever', {}, {});
             currentScript.blocks[id] = block;
             stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
-            matched = true;
+            matched_this = true;
         } else if (/^repeat\s*\((.+?)\)/.test(line)) {
             const match = line.match(/^repeat\s*\((.+?)\)/);
             const times = match[1];
@@ -527,7 +606,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
             currentScript.blocks[id] = block;
             stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
-            matched = true;
+            matched_this = true;
         } else if (/^repeat until\s*<(.+?)>/.test(line)) {
             const match = line.match(/^repeat until\s*<(.+?)>/);
             const conditionText = match[1];
@@ -538,7 +617,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
             currentScript.blocks[id] = block;
             stack[stack.length - 1]?.children.push(block);
             stack.push({ id, block, children: [] });
-            matched = true;
+            matched_this = true;
         } else if (line.startsWith('if')) {
             if (line.match(/if\s*<(.+?)>\s*then/)) {
                 const id = generateId();
@@ -549,10 +628,10 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                 currentScript.blocks[id] = block;
                 stack[stack.length - 1]?.children.push(block);
                 stack.push({ id, block, children: [] });
-                matched = true;
+                matched_this = true;
             } else {
                 console.warn(`Unrecognized if condition: "${line}"`);
-                matched = false;
+                matched_this = false;
             }
         } else if (line.startsWith('else')) {
             if (stack.length > 0) {
@@ -578,14 +657,14 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                         block: ifElseBlock,
                         children: []
                     });
-                    matched = true;
+                    matched_this = true;
                 } else {
                     console.warn('Else without matching if block');
-                    matched = false;
+                    matched_this = false;
                 }
             } else {
                 console.warn('Else without any if block in stack');
-                matched = false;
+                matched_this = false;
             }
         } else if (line.startsWith('go to [random position')) {
             const id = generateId();
@@ -593,7 +672,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                 TO: [1, 'random position']
             }, {});
             stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-            matched = true;
+            matched_this = true;
         } else {
             for (const pattern of blockPatterns) {
                 const match = line.match(pattern.match);
@@ -608,16 +687,18 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                         topLevel: false
                     });
                     stack[stack.length - 1]?.children.push(currentScript.blocks[id]);
-                    matched = true;
+                    matched_this = true;
                     break;
-                }    
-                matched = false; 
-            }
+                } 
+                matched_this = false;      
+            }        
         }
-        console.log(matched);
+        matched = matched && matched_this;
+        console.log(matched_this);  
     }
+    console.log('Matched All: ', matched);
 
-    if (currentScript) {
+    if (currentScript && matched) {
         // Connect top-level blocks outside any control block
         // Only include blocks not already referenced in any inputs
         const usedBlockIds = new Set();

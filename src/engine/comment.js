@@ -15,9 +15,10 @@ class Comment {
      * @param {number} width The width of the comment when it is full size.
      * @param {number} height The height of the comment when it is full size.
      * @param {boolean} minimized Whether the comment is minimized.
+     * @param {boolean} storyboardComment Whether the comment is for a storyboard block.
      * @constructor
      */
-    constructor (id, text, x, y, width, height, minimized) {
+    constructor (id, text, x, y, width, height, minimized, storyboardComment, feedback = '') {
         this.id = id || uid();
         this.text = text;
         this.x = x;
@@ -26,12 +27,16 @@ class Comment {
         this.height = Math.max(Number(height), Comment.MIN_HEIGHT);
         this.minimized = minimized || false;
         this.blockId = null;
+        this.storyboardComment = storyboardComment; // Indicates if this comment is for a storyboard block
+        this.feedback = feedback;
     }
 
     toXML () {
         return `<comment id="${this.id}" x="${this.x}" y="${
             this.y}" w="${this.width}" h="${this.height}" pinned="${
-            this.blockId !== null}" minimized="${this.minimized}">${xmlEscape(this.text)}</comment>`;
+            this.blockId !== null}" minimized="${this.minimized}" 
+            storyboardComment="${this.storyboardComment}" 
+            feedback="${xmlEscape(this.feedback).replace(/\n/g, '&#10;')}">${xmlEscape(this.text)}</comment>`;
     }
 
     // TODO choose min and defaults for width and height
