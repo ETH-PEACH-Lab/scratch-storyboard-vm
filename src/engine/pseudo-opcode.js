@@ -441,7 +441,7 @@ const pseudoOpcode = {
     },
     "event_whenkeypressed": {
         "opcode": "event_whenkeypressed",               
-        "pseudocode": "when key (KEY v) pressed",
+        "pseudocode": "when (KEY v) key pressed",
         "regex": "^when key \\((.+)\\) pressed$",
         "category": "event",    
         "blockType": "hat",

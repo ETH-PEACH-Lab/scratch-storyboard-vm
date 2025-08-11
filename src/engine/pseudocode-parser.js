@@ -161,8 +161,8 @@ const wrapInputBlock = (value, blocks, typeHint = 'text', knownVariables, parent
                     }, {}, {id, parent: parentId});
                 }
                 // Pick random: pick random (a) to (b)
-                else if (value.match(/^pick random\s*\((.+)\)\s*to\s*\((.+)\)$/)) {
-                    const [, a, b] = value.match(/^pick random\s*\((.+)\)\s*to\s*\((.+)\)$/);
+                else if (value.match(/^pick random\s*\((.+?)\)\s*to\s*\((.+?)\)$/)) {
+                    const [, a, b] = value.match(/^pick random\s*\((.+?)\)\s*to\s*\((.+?)\)$/);
                     block = createBlock(id, 'operator_pickrandom', {
                         FROM: {name: 'FROM', block: wrapInputBlock(a, blocks, 'math_number', knownVariables, id)},
                         TO: {name: 'TO', block: wrapInputBlock(b, blocks, 'math_number', knownVariables, id)}
@@ -395,11 +395,11 @@ const blockPatterns = [
         })
     },
     {
-        match: /^go to x: \\((.+)\\) y: \\((.+)\\)$/, // go to x: (100) y: (200)
+        match: /^go to x: \((.+)\) y: \((.+)\)$/, 
         opcode: 'motion_gotoxy',
         inputs: (match, blocks, knownVariables, parentId) => ({
-            X: {name: 'X', block: wrapInputBlock(match[1], blocks, 'math_number', knownVariables, parentId)},
-            Y: {name: 'Y', block: wrapInputBlock(match[2], blocks, 'math_number', knownVariables, parentId)}
+            X: {name: 'X', block: wrapInputBlock(match[1], blocks, knownVariables=knownVariables, parentId=parentId)},
+            Y: {name: 'Y', block: wrapInputBlock(match[2], blocks, knownVariables=knownVariables, parentId=parentId)}
         })
     },
     {
@@ -495,6 +495,13 @@ const blockPatterns = [
         opcode: 'looks_show',
         inputs: (match, blocks, knownVariables) => ({})
     },
+    {
+        match: /^ask (.+) and wait/,
+        opcode: 'sensing_askandwait',
+        inputs: (match, blocks, knownVariables, parentId) => ({
+            QUESTION: {name: 'QUESTION', block: wrapInputBlock(match[1], blocks, "text", knownVariables, parentId)}
+        })
+    }
 
 ];
 
@@ -507,7 +514,8 @@ const blockPatterns = [
 * @returns {Array<object>} Array of script objects representing parsed blocks.
 */
 const parsePseudoCode = function (code, globalVariables = [], localVariables = [], targets = []) {
-    const knownVariables = [...globalVariables, ...localVariables];
+    const fixedVars = ['size', 'x position', 'y position', 'direction', 'costume #', 'costume name', 'volume']
+    const knownVariables = [...globalVariables, ...localVariables, ...fixedVars, ...targets];
     const lines = code.split('\n').map(line => line.trim())
         .filter(Boolean);
     const stack = [];
@@ -568,11 +576,12 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
             } else if (/when I receive \[(.+?)\]/.test(line)) {
                 const match = line.match(/when I receive \[(.+?)\]/);
                 blockType = 'event_whenbroadcastreceived';
-                fields = { BROADCAST_OPTION: [match[1], null] };
-            } else if (/when \[(.+?)\] key pressed/.test(line)) {
-                const match = line.match(/when \[(.+?)\] key pressed/);
+                fields = { BROADCAST_OPTION: {name: 'BROADCAST_OPTION', id:
+                    wrapInputBlock(match[1], blocks, 'broadcast_option', knownVariables, id), value: match[1]}}
+            } else if (/when \((.+?) v\) key pressed/.test(line)) {
+                const match = line.match(/when \((.+?) v\) key pressed/);
                 blockType = 'event_whenkeypressed';
-                fields = { KEY_OPTION: [match[1], null] };
+                fields = { KEY_OPTION: {name: 'KEY_OPTION', id: undefined, value: match[1]}}
             } else if (/when \[(.+?)\] > \((.+?)\)/.test(line)) {
                 const match = line.match(/when \[(.+?)\] > \((.+?)\)/);
                 blockType = 'event_whengreaterthan';
@@ -666,7 +675,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
                 console.warn('Else without any if block in stack');
                 matched_this = false;
             }
-        } else if (line.startsWith('go to [random position')) {
+        } else if (line.startsWith('go to (random position v)')) {
             const id = generateId();
             currentScript.blocks[id] = createBlock(id, 'motion_goto', {
                 TO: [1, 'random position']
@@ -676,7 +685,7 @@ const parsePseudoCode = function (code, globalVariables = [], localVariables = [
         } else {
             for (const pattern of blockPatterns) {
                 const match = line.match(pattern.match);
-                if (match) {
+                if (match && currentScript) {
                     const id = generateId();
                     const opcode = typeof pattern.opcode === 'function' ? pattern.opcode(match) : pattern.opcode;
                     const inputs = pattern.inputs ? pattern.inputs(match, currentScript.blocks, knownVariables, id) : {};

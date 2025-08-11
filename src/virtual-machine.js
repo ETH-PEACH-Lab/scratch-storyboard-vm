@@ -88,21 +88,21 @@ class VirtualMachine extends EventEmitter {
          */
         this.referenceProjectPseudoCodeString = null;
 
-        // this.storyboardOverall = {
-        //     title: '',
-        //     description: '',
-        //     globalVariables: [],
-        //     descriptionFeedback: {text: '', color: 'NeedsImprovement'},
-        //     globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
-        // };
-
         this.storyboardOverall = {
-            title: 'Collecting Apples',
-            description: 'Move the bowl and collect the apples. The red apples give one point, and the golden apples give two points. At 10 points you win.',
-            globalVariables: ['Score'],
+            title: '',
+            description: '',
+            globalVariables: [],
             descriptionFeedback: {text: '', color: 'NeedsImprovement'},
             globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
-        }; // for testing purposes English
+        };
+
+        // this.storyboardOverall = {
+        //     title: 'Collecting Apples',
+        //     description: 'Move the bowl and collect the apples. The red apples give one point, and the golden apples give two points. At 10 points you win.',
+        //     globalVariables: ['Score'],
+        //     descriptionFeedback: {text: '', color: 'NeedsImprovement'},
+        //     globalVariablesFeedback: {text: '', color: 'NeedsImprovement'}
+        // }; // for testing purposes English
 
         // this.storyboardOverall = {
         //     title: 'Äpfel sammeln',
@@ -1215,9 +1215,11 @@ class VirtualMachine extends EventEmitter {
         // const prompt = pseudocodePrompt(this, behavior);
         const prompt = pseudoCodePrompt(this, behavior);
         console.log(new Date().toISOString());
-        const response = await this.callOllama(prompt);
+        // const response = await this.callOllama(prompt);
+        const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
-        const blocks = response.response;
+        // const blocks = response.response;
+        const blocks = response;
         const trimmedblocks = blocks.split('\n').slice(blocks.split('\n').findIndex(l => l.trim().startsWith('when'))).join('\n');
         console.log(trimmedblocks);
 
@@ -1365,14 +1367,14 @@ class VirtualMachine extends EventEmitter {
         return blocks;
     }
 
-    copyStoryboardToComments () {
+    copyStoryboardToComments (variable_string, related_sprites_string) {
         // Copy the storyboard description to the comments of each sprite
         this.runtime.targets.forEach(target => {
             if (target.isSprite()) {
                 target.behaviors.forEach(behavior => {
                     const commentText = `${behavior.name}\n${behavior.description}\n
-${behavior.variables.length > 0 ? 'Variables: ' + behavior.variables.join(', ') : ''}
-${behavior.relatedSprites.length > 0 ? 'Related Sprites: ' + behavior.relatedSprites.join(', ') : ''}`;
+${behavior.variables.length > 0 ? variable_string + behavior.variables.join(', ') : ''}
+${behavior.relatedSprites.length > 0 ? related_sprites_string + behavior.relatedSprites.join(', ') : ''}`;
                     const index = target.sprite.behaviors.indexOf(behavior);
                     target.createComment(behavior.name, null, commentText, 500, 500 - (index * 250), 250, 200, false);
                 });

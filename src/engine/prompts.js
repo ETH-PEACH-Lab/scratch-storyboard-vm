@@ -225,7 +225,7 @@ good plans:
 "Repeat 5 times: move 10 steps, then turn 15 degrees."
 "If the character is touching the red apple, change score by 1 and hide the apple."
 
-The student's language has this language code ${vm.getLocale().language}. Explanation, clarification, and description should be in the same language.
+The student's language code is ${vm.getLocale().language}. Explanation, clarification, and description should be in the same language.
 
 Student plan for the sprite ${vm.editingTarget.getName()}:
  "${vm.editingTarget.comments[id].text}"
@@ -400,11 +400,12 @@ Follow these rules exactly for the pseudocode:
    - Inputs: use parentheses (value), brackets [text], and angle brackets <condition?> according to block type.
    - Nest and indent blocks correctly, and close if, forever, repeat, loops, etc., with end. All c-blocks must end with an end line.
 
-Full supported block list equivalent to scratchblocks:
+Here is the full supported block list equivalent to scratchblocks:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
     [block.opcode]: block.pseudocode
 })), null, 2)}
 
+Use the pseudocode not keys.
 Only output the scratch pseudocode. Do not add explanations or commentary! No backticks or other formatting!
 `;
 }    
