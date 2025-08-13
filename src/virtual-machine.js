@@ -1173,10 +1173,10 @@ class VirtualMachine extends EventEmitter {
     async getBehaviorFeedback (id) {
         const prompt = goodEnoughPrompt(this, id);
         console.log(new Date().toISOString());
-        const response = await this.callOllama(prompt);
+        const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
         
-        const matches = response.response.match(/\{[\s\S]*\}/);
+        const matches = response.match(/\{[\s\S]*\}/);
         if (!matches || matches.length === 0) {
             console.error('No JSON object found in response:', response);
             return response.response;
