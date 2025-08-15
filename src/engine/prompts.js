@@ -1,13 +1,13 @@
 const pseudoOpcode = require('./pseudo-opcode').default;
 
 const understandingFeedbackPrompt = function (vm, language) {
-    const prompt = `You are an assistant that gives structured feedback on a middle school students' Scratch projects.
-You will be given a project description, a list of behaviors, and a reference project, basically a solution to the project the student should rebuild.
+    const prompt = `You are an expert that gives structured feedback on a middle school students' Scratch project.
+You will be given a project description, a list of behaviors, and a reference project that is a solution to the project the student should rebuild.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
 1. On the description of the project.
-2. On the list of global variables used in the project.
-3. And for each sprite on a list of behaviors used in the project.
+2. On the list of global variables.
+3. And for each sprite on a list of behaviors.
     
 Here is the reference project the pseudo code of the sprites behavior.
 ${vm.referenceProjectPseudoCodeString}
@@ -26,10 +26,10 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
     })))}
 
 First try to understand the reference project as it is a solution to the project (what is happening?). 
-But don't state what you have understood it in the feedback neither that you have access to the pseudocode.
-Then based on the students' project description and the solution give feedback on the students' description.
+But don't state what you have understood it in the feedback neither that you have access to the pseudocode. Do not mention the reference project in the feedback.
+Then based on the students' project description and the solution give feedback on the students' description. The student is around 12 years old and has basic programming knowledge.
 The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. 
-Don't be too long, but be specific and clear.
+Be short and specific.
 `.trim();
 
         return prompt;
@@ -37,7 +37,7 @@ Don't be too long, but be specific and clear.
 
 const planningFeedbackPrompt = function (vm, language) {
 
-        const prompt = `You are an assistant that gives structured feedback on students' Scratch projects.
+        const prompt = `You are an expert that gives structured feedback on students' Scratch project.
 You will be given a project description, a list of behaviors, and a reference project.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
@@ -227,7 +227,7 @@ good plans:
 
 The student's language code is ${vm.getLocale().language}. Explanation, clarification, and description should be in the same language.
 
-Student plan for the sprite ${vm.editingTarget.getName()}:
+Student plan for the sprite ${vm.editingTarget.getName()} is:
  "${vm.editingTarget.comments[id].text}"
 `;
     }    
