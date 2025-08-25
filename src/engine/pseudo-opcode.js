@@ -704,7 +704,7 @@ const pseudoOpcode = {
     },
     sensing_mousex: {
         opcode: 'sensing_mousex',
-        pseudocode: 'mouse x position',
+        pseudocode: 'mouse x',
         regex: '^mouse x position$',
         category: 'sensing',
         blockType: 'reporter',
@@ -712,7 +712,7 @@ const pseudoOpcode = {
     },
     sensing_mousey: {
         opcode: 'sensing_mousey',
-        pseudocode: 'mouse y position',
+        pseudocode: 'mouse y',
         regex: '^mouse y position$',
         category: 'sensing',
         blockType: 'reporter',
