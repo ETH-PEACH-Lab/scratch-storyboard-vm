@@ -1,7 +1,7 @@
 const pseudoOpcode = require('./pseudo-opcode').default;
 
 const understandingFeedbackPrompt = function (vm, language) {
-    const prompt = `You are an expert that gives structured feedback on a middle school students' Scratch project.
+    const prompt = `You are an expert that gives structured feedback on a middle school student's Scratch project.
 You will be given a project description, a list of behaviors, and a reference project that is a solution to the project the student should rebuild.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
@@ -9,10 +9,10 @@ Your task is to provide feedback on the project in ${language}, including:
 2. On the list of global variables.
 3. And for each sprite on a list of behaviors.
     
-Here is the reference project the pseudo code of the sprites behavior.
+Here is the reference project the pseudocode of the sprites behavior.
 ${vm.referenceProjectPseudoCodeString}
 
-Everything below is the students' project description and behaviors.
+Everything below is the student's project description and behaviors.
 Project title: ${vm.storyboardOverall.title}
 Overall project description: ${vm.storyboardOverall.description}
 A list of global variables: ${vm.storyboardOverall.globalVariables}
@@ -26,8 +26,8 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
     })))}
 
 First try to understand the reference project as it is a solution to the project (what is happening?). 
-But don't state what you have understood it in the feedback neither that you have access to the pseudocode. Do not mention the reference project in the feedback.
-Then based on the students' project description and the solution give feedback on the students' description. The student is around 12 years old and has basic programming knowledge.
+But don't state what you have understood in the feedback nore that you have access to the pseudocode. Do not mention the reference project in the feedback.
+Then based on the student's project description and the solution give feedback on the student's description. The student is around 12 years old and has basic programming knowledge.
 The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. 
 Be short and specific.
 `.trim();
@@ -37,7 +37,7 @@ Be short and specific.
 
 const planningFeedbackPrompt = function (vm, language) {
 
-    const prompt = `You are an expert that gives structured feedback on students' Scratch project.
+    const prompt = `You are an expert that gives structured feedback on a student's Scratch project.
 You will be given a project description, a list of behaviors, and a reference project.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
@@ -46,7 +46,7 @@ Your task is to provide feedback on the project in ${language}, including:
 3. And for each sprite on a list of behaviors used in the project, 
 including their descriptions and any related sprites or blocks.
 
-Here is the reference project pseudo code from each sprite:
+Here is the reference project pseudocode from each sprite:
 ${vm.referenceProjectPseudoCodeString}
 
 You have given feedback on the project description and the behaviors in the previous step. Now the student is ready to plan the project.
@@ -55,7 +55,7 @@ The variables were selected from a predefined list including the global variable
 The related sprites were also selected from a predefined list of sprites that are part of the project, excluding the sprite this behavior belongs to.
 The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it.
 
-Everything below is the students' project description and behaviors.
+Everything below is the student's project description and behaviors.
 The project title: ${vm.storyboardOverall.title}
 The overall project description:
 ${vm.storyboardOverall.description}
@@ -99,7 +99,7 @@ The feedback should be structured as follows:
 
 Always add the feedback in the corresponding field of the sprite and behavior. If there is no behavior for a specific sprite do not make it up. 
 Only give feedback in the json feedback structure with double quotes with the keys mentioned above. 
-And for the fields like relatedSprites and variables give feedback about completeness and correctness do not list the individual items in the list.
+And for the fields like relatedSprites and variables give feedback about completeness and correctness, do not list the individual items in the list.
 `.trim();
 
     if (vm.feedbacks.length > 0) {
@@ -172,8 +172,8 @@ If there is no behavior for a specific sprite do not make it up. And for the fie
 };
 
 const rewritingPrompt = function (vm, behaviorIndex) {
-    return `You are an assistant that rewrites students project descriptions of a sprite's behavior to a more detailed. 
-        Try to guess what the students mean. This description will be used to translate into a pseudo code of executable Scratch 3.0 blocks.
+    return `You are an assistant that rewrites a student's project descriptions of a sprite's behavior to a more detailed. 
+        Try to guess what the student means. This description will be used to translate into a pseudocode of executable Scratch 3.0 blocks.
         Here is the one behavior description for the sprite ${vm.editingTarget.getName()}:
         ${vm.editingTarget.sprite.behaviors[behaviorIndex].description}
 
@@ -256,14 +256,14 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
         }))
     })))}
 
-Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
+Based on the description of the sprites behaviors, create pseudocode for each sprite that can be used to create a Scratch 3.0 project.
 
-Here is the complete list of pseudo code blocks that can be used to create the pseudo code for the behaviors:
+Here is the complete list of pseudocode blocks that can be used to create the pseudocode for the behaviors:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
         [block.opcode]: block.pseudocode
     })), null, 2)}
 
-Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
+Here is an example of pseudocode for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
 
 **Cat**
 
@@ -288,19 +288,19 @@ Anything in brackets should either be a variable mentioned like a name or a numb
 };
 
 const pseudocodePrompt = function (vm, behavior) {
-    return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
+    return `You are an assistant that generates Scratch 3.0 blocks pseudocode based on a behavior description of a sprite.
 Here is a behavior description of the sprite ${vm.editingTarget.getName()}:
 ${behavior.description}
 
-Here is the complete list of pseudo code blocks, only uses these to create the pseudo code for this behavior, find the most fitting block for the description:
+Here is the complete list of pseudocode blocks, only uses these to create the pseudocode for this behavior, find the most fitting block for the description:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
         [block.opcode]: block.pseudocode
     })), null, 2)}
 At the end of any c-block, like forever, repeat, if, there must be a line with 'end'. Conditions must be in this format: <CONDITION>.
 Variables, sprite, costume and sound names as well as numbers should always be in round brackets (). See the examples below and the list above.
 Anything in brackets should either be a variable mentioned like a name or a number or a string where it makes sense. Escape < and >, if you want to use them as greater or smaller than.
-Do not mention the sprite name in the pseudo code, just use the blocks as they are. Only use other sprites names that relate to it if needed.
-Do not write any text before or after the pseudo code! Just the pseudo code blocks in the format of the example below. Start a new package of blocks/lines with a when block. Do not use any backticks or other formatting!
+Do not mention the sprite name in the pseudocode, just use the blocks as they are. Only use other sprites names that relate to it if needed.
+Do not write any text before or after the pseudocode! Just the pseudocode blocks in the format of the example below. Start a new package of blocks/lines with a when block. Do not use any backticks or other formatting!
 
 Here are example of description and their possible pseudocode. 
 Example 1: 'jumping on space key pressed'
