@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
@@ -30,9 +31,20 @@ const webBuilder = new ScratchWebpackConfigBuilder(common)
         },
         resolve: {
             fallback: {
-                Buffer: require.resolve('buffer/')
+                Buffer: require.resolve('buffer/'),
+                stream: require.resolve('stream-browserify'),
+                path: require.resolve('path-browserify'),
+                crypto: require.resolve('crypto-browserify'),
+                process: require.resolve('process/browser'),
+                vm: require.resolve('vm-browserify')
             }
         },
+        plugins: [
+            new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer'],
+            process: 'process/browser'
+            })
+        ],
         output: {
             library: {
                 name: 'VirtualMachine'
