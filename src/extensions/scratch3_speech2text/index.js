@@ -475,22 +475,43 @@ class Scratch3Speech2TextBlocks {
      * Initialize the audio context and connect the microphone.
      * @private
      */
-    _initializeMicrophone () {
-        // Don't make a new context if we already made one.
+    _initializeMicrophone() {
+        // Create AudioContext if it doesn't exist (handle Safari prefix)
         if (!this._context) {
-            // Safari still needs a webkit prefix for audio context
-            this._context = new (window.AudioContext || window.webkitAudioContext)();
+            if (typeof window !== 'undefined') {
+                this._context = new (window.AudioContext || window.webkitAudioContext)();
+            } else {
+                console.warn('AudioContext not available in this environment.');
+                return;
+            }
         }
-        // In safari we have to call getUserMedia every time we want to listen. Other browsers allow
-        // you to reuse the mediaStream.  See #1202 for more context.
-        this._audioPromise = navigator.mediaDevices.getUserMedia({
-            audio: true
-        });
 
-        this._audioPromise.then().catch(e => {
-            log.error(`Problem connecting to microphone:  ${e}`);
-        });
+        // Check if navigator and getUserMedia are available
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.warn('Microphone not available in this environment.');
+            return;
+        }
+
+        // Detect Safari (needs new getUserMedia call each time)
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        if (isSafari || !this._audioPromise) {
+            this._audioPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+
+        this._audioPromise
+            .then(stream => {
+                // Connect the stream to the audio context here
+                if (this._context && stream) {
+                    const source = this._context.createMediaStreamSource(stream);
+                    source.connect(this._context.destination); // optional, depending on your usage
+                }
+            })
+            .catch(e => {
+                console.error(`Problem connecting to microphone: ${e}`);
+            });
     }
+
 
     /**
      * Sets up the script processor and the web socket.

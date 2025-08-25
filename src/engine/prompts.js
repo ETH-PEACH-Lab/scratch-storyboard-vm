@@ -32,12 +32,12 @@ The point of this feedback is to help the student plan the project and understan
 Be short and specific.
 `.trim();
 
-        return prompt;
-    }
+    return prompt;
+};
 
 const planningFeedbackPrompt = function (vm, language) {
 
-        const prompt = `You are an expert that gives structured feedback on students' Scratch project.
+    const prompt = `You are an expert that gives structured feedback on students' Scratch project.
 You will be given a project description, a list of behaviors, and a reference project.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
@@ -102,26 +102,26 @@ Only give feedback in the json feedback structure with double quotes with the ke
 And for the fields like relatedSprites and variables give feedback about completeness and correctness do not list the individual items in the list.
 `.trim();
 
-        if (vm.feedbacks.length > 0) {
-            const matches = vm.feedbacks.filter(item => item.type === 'understanding');
-            const lastMatch = matches.at(-1);
-            const lastResponse = lastMatch ? lastMatch.response : '';
-            if (lastMatch && lastResponse) {
+    if (vm.feedbacks.length > 0) {
+        const matches = vm.feedbacks.filter(item => item.type === 'understanding');
+        const lastMatch = matches.at(-1);
+        const lastResponse = lastMatch ? lastMatch.response : '';
+        if (lastMatch && lastResponse) {
 
-                const lastPrompt = lastMatch ? lastMatch.prompt : '';
-                const memory = `The last prompt including the last state of the description was 
+            const lastPrompt = lastMatch ? lastMatch.prompt : '';
+            const memory = `The last prompt including the last state of the description was 
                 ${lastPrompt}. 
                 And the last feedback response was: ${lastResponse}`;
-                const finalPrompt = prompt + memory;
-                return finalPrompt;
-            }
+            const finalPrompt = prompt + memory;
+            return finalPrompt;
         }
-
-        return prompt;
     }
 
+    return prompt;
+};
+
 const statusFeedbackPrompt = function (feedback) {
-        const prompt = `
+    const prompt = `
 Based on the following feedback, state if the corresponding components of the sprite and behavior are Complete, Incomplete or NeedsImprovement
 
 here is the feedback: ${feedback}
@@ -168,21 +168,20 @@ The output should look like this, but have the sprite names from the project and
 Based on the given feedback make a prediction of the status of the component for all sprites and all behaviors and all fields. 
 If there is no behavior for a specific sprite do not make it up. And for the fields like relatedSprites and variables also only select the status whether the list is Complete or Incomplete or NeedsImprovement if a wrong option was selected.
 `.trim();
-        return prompt;
-    }
+    return prompt;
+};
 
 const rewritingPrompt = function (vm, behaviorIndex) {
-        return `You are an assistant that rewrites students project descriptions of a sprite's behavior to a more detailed. 
+    return `You are an assistant that rewrites students project descriptions of a sprite's behavior to a more detailed. 
         Try to guess what the students mean. This description will be used to translate into a pseudo code of executable Scratch 3.0 blocks.
         Here is the one behavior description for the sprite ${vm.editingTarget.getName()}:
         ${vm.editingTarget.sprite.behaviors[behaviorIndex].description}
 
         You can start with 'oh you mean' or 'oh du meinst' if ${vm.getLocale().language === 'de'} and then rewrite the description.
     `;
-    }
+};
 
-const goodEnoughPrompt = (vm, id) => {
-        return `You are an expert in programming education. Given a student's natural language plan for a Scratch project, your job is to judge whether this plan is specific enough to generate Scratchblocks without additional clarification.
+const goodEnoughPrompt = (vm, id) => `You are an expert in programming education. Given a student's natural language plan for a Scratch project, your job is to judge whether this plan is specific enough to generate Scratchblocks without additional clarification.
 The plan should include concrete, observable actions (e.g., motion, events, conditions, interactions) and ideally specify agents, targets, and conditions. 
 Please return:
 is_specific: true or false
@@ -230,10 +229,9 @@ The student's language code is ${vm.getLocale().language}. Explanation, clarific
 Student plan for the sprite ${vm.editingTarget.getName()} is:
  "${vm.editingTarget.comments[id].text}"
 `;
-    }    
 
 const translationPrompt = function (vm) {
-        return `You are an assistant that translates project descriptions and sprite behaviors to a Scratch 3.0 project json.
+    return `You are an assistant that translates project descriptions and sprite behaviors to a Scratch 3.0 project json.
 The project description and sprite behaviors are in ${vm.getLocale().language} and need to be translated to English.
 
 Here is the project title:
@@ -247,23 +245,23 @@ ${vm.storyboardOverall.globalVariables}
 
 Here are the list of behaviors (movement, interaction, control) for each sprite:
 ${JSON.stringify(vm.runtime.targets.map(target => ({
-    name: target.getName(),
-    behaviors: target.sprite.behaviors.map(behavior => ({
-        name: behavior.name,
-        description: behavior.description,
-        variables: behavior.variables,
-        sounds: behavior.sounds,
-        costumes: behavior.costumes,
-        relatedSprites: behavior.relatedSprites
-    }))
-})))}
+        name: target.getName(),
+        behaviors: target.sprite.behaviors.map(behavior => ({
+            name: behavior.name,
+            description: behavior.description,
+            variables: behavior.variables,
+            sounds: behavior.sounds,
+            costumes: behavior.costumes,
+            relatedSprites: behavior.relatedSprites
+        }))
+    })))}
 
 Based on the description of the sprites behaviors, create pseudo code for each sprite that can be used to create a Scratch 3.0 project.
 
 Here is the complete list of pseudo code blocks that can be used to create the pseudo code for the behaviors:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    [block.opcode]: block.pseudocode
-})), null, 2)}
+        [block.opcode]: block.pseudocode
+    })), null, 2)}
 
 Here is an example of pseudo code for the behavior 'jumping on space key pressed' and 'reset score points and moving to starting position on green flag clicked' for Cat:
 
@@ -287,17 +285,17 @@ The pseudo must be in the same format as the example above. Between every new gr
 Variables, sprite, costume and sound names should always be in round brackets () and no need to put the code in backticks or any other formatting.
 Anything in brackets should either be a variable mentioned like a name or a number or a string where it makes sense. Escape < and >, if you want to use them as greater or smaller than.
 `.trim();
-    }    
+};
 
 const pseudocodePrompt = function (vm, behavior) {
-        return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
+    return `You are an assistant that generates Scratch 3.0 blocks pseudo code based on a behavior description of a sprite.
 Here is a behavior description of the sprite ${vm.editingTarget.getName()}:
 ${behavior.description}
 
 Here is the complete list of pseudo code blocks, only uses these to create the pseudo code for this behavior, find the most fitting block for the description:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    [block.opcode]: block.pseudocode
-})), null, 2)}
+        [block.opcode]: block.pseudocode
+    })), null, 2)}
 At the end of any c-block, like forever, repeat, if, there must be a line with 'end'. Conditions must be in this format: <CONDITION>.
 Variables, sprite, costume and sound names as well as numbers should always be in round brackets (). See the examples below and the list above.
 Anything in brackets should either be a variable mentioned like a name or a number or a string where it makes sense. Escape < and >, if you want to use them as greater or smaller than.
@@ -374,7 +372,7 @@ play sound [pop v]
 stop all
 `;
 
-    }    
+};
     
     
 const pseudoCodePrompt = function (vm, behavior) {
@@ -402,13 +400,13 @@ Follow these rules exactly for the pseudocode:
 
 Here is the full supported block list equivalent to scratchblocks:
 ${JSON.stringify(Object.values(pseudoOpcode).map(block => ({
-    [block.opcode]: block.pseudocode
-})), null, 2)}
+        [block.opcode]: block.pseudocode
+    })), null, 2)}
 
 Use the pseudocode not keys.
 Only output the scratch pseudocode. Do not add explanations or commentary! No backticks or other formatting!
 `;
-}    
+};
 
 module.exports = {
     understandingFeedbackPrompt,
@@ -416,7 +414,7 @@ module.exports = {
     statusFeedbackPrompt,
     goodEnoughPrompt,
     rewritingPrompt,
-    translationPrompt, 
+    translationPrompt,
     pseudocodePrompt,
     pseudoCodePrompt
-};    
+};

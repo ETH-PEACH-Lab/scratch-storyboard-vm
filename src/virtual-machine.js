@@ -27,7 +27,7 @@ require('canvas-toBlob');
 const fetch = require('node-fetch');
 const parsePseudoCode = require('./engine/pseudocode-parser');
 const exampleblocks = require('./exampleblocks.json');
-const {understandingFeedbackPrompt, planningFeedbackPrompt, statusFeedbackPrompt, goodEnoughPrompt, translationPrompt, pseudocodePrompt, pseudoCodePrompt} = require('./engine/prompts')
+const {understandingFeedbackPrompt, planningFeedbackPrompt, statusFeedbackPrompt, goodEnoughPrompt, translationPrompt, pseudocodePrompt, pseudoCodePrompt} = require('./engine/prompts');
 
 const RESERVED_NAMES = ['_mouse_', '_stage_', '_edge_', '_myself_', '_random_'];
 
@@ -60,9 +60,7 @@ class VirtualMachine extends EventEmitter {
             log.error(`Failed to register runtime service: ${JSON.stringify(e)}`);
         });
 
-        this.runtime.requestCommentFeedback = (commentId) => {
-            return this.getBehaviorFeedback(commentId);
-        };
+        this.runtime.requestCommentFeedback = commentId => this.getBehaviorFeedback(commentId);
         /**
          * The "currently editing"/selected target ID for the VM.
          * Block events from any Blockly workspace are routed to this target.
@@ -232,7 +230,7 @@ class VirtualMachine extends EventEmitter {
      * "Green flag" handler - start all threads starting with a green flag.
      * @param {number} tabindex - The index of the tab to determine which green flag handler to use.
      */
-    greenFlag (tabindex=0) {
+    greenFlag (tabindex = 0) {
         if (tabindex === 1) {
             this.runtime.storyboardMode = true;
         } else {
@@ -1185,14 +1183,14 @@ class VirtualMachine extends EventEmitter {
         const jsonResponse = matches[0];
         try {
             const responseObject = JSON.parse(jsonResponse);
-            const behavior = this.editingTarget.sprite.behaviors.filter(behavior => behavior.id === id)[0]
+            const behavior = this.editingTarget.sprite.behaviors.filter(behavior => behavior.id === id)[0];
             behavior.is_specific = responseObject.is_specific;
             behavior.clarification = responseObject.clarification;
             behavior.explanation = responseObject.explanation;
-            behavior.description = responseObject.description;  
-            this.editingTarget.comments[id].feedback = 'Description: ' + (behavior.is_specific ? behavior.description : 'not specific enough') 
-            + '\n\nExplanation: ' + behavior.explanation 
-            + '\n\nClarification: ' + (behavior.is_specific ? 'no clarification needed' : behavior.clarification)
+            behavior.description = responseObject.description;
+            this.editingTarget.comments[id].feedback = `Description: ${behavior.is_specific ? behavior.description : 'not specific enough'
+            }\n\nExplanation: ${behavior.explanation
+            }\n\nClarification: ${behavior.is_specific ? 'no clarification needed' : behavior.clarification}`;
             this.emitTargetsUpdate();
             // this.emitWorkspaceUpdate();
             let parsing = null;
@@ -1200,7 +1198,7 @@ class VirtualMachine extends EventEmitter {
                 parsing = await this.generateBlocks(behavior);
                 behavior.parsing = parsing;
                 responseObject.parsing = parsing;
-                this.editingTarget.comments[id].feedback += (parsing && parsing == "Failure" ? '\n\n! Failed to generate a parsable pseudocode. Retry feedback if you want to try in storyboard mode' : '');
+                this.editingTarget.comments[id].feedback += (parsing && parsing == 'Failure' ? '\n\n! Failed to generate a parsable pseudocode. Retry feedback if you want to try in storyboard mode' : '');
                 this.emitTargetsUpdate();
             }
             // this.emitWorkspaceUpdate();
@@ -1221,14 +1219,17 @@ class VirtualMachine extends EventEmitter {
         console.log(new Date().toISOString());
         // const blocks = response.response;
         const blocks = response;
-        const trimmedblocks = blocks.split('\n').slice(blocks.split('\n').findIndex(l => l.trim().startsWith('when'))).join('\n');
+        console.log(blocks);
+        const trimmedblocks = blocks.split('\n').slice(blocks.split('\n').findIndex(l => l.trim().startsWith('when')))
+            .join('\n');
         console.log(trimmedblocks);
 
-        const scratchblocks = parsePseudoCode(trimmedblocks, 
+        const scratchblocks = parsePseudoCode(trimmedblocks,
             Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
             Object.values(this.editingTarget.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
-            this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
-            );
+            this.runtime.targets.map(t => ({name: t.getName(), id: t.id})),
+            this.editingTarget.sprite.sounds.map(sound => ({name: sound.name}))
+        );
         if (scratchblocks.length > 0) {
             for (const group of scratchblocks) {
                 for (const block of Object.values(group.blocks)) {
@@ -1237,10 +1238,8 @@ class VirtualMachine extends EventEmitter {
             }
             console.log(this.editingTarget.storyboardBlocks);
             return 'Success';
-        } else {
-            return 'Failure';
         }
-        
+        return 'Failure';
     }
 
     /**
@@ -1267,33 +1266,33 @@ class VirtualMachine extends EventEmitter {
         const feedbackResponse = response.response;
         console.log(feedbackResponse);
 
-//         // for testing parser
-//         const feedbackResponse = `**Bowl**
-// when @greenFlag clicked
-// forever
-//     if <key [right arrow v] pressed?> then
-//         change x by (10)
-//     end
-//     if <key [left arrow v] pressed?> then
-//         change x by (-10)
-//     end
-// end
+        //         // for testing parser
+        //         const feedbackResponse = `**Bowl**
+        // when @greenFlag clicked
+        // forever
+        //     if <key [right arrow v] pressed?> then
+        //         change x by (10)
+        //     end
+        //     if <key [left arrow v] pressed?> then
+        //         change x by (-10)
+        //     end
+        // end
 
-// when @greenFlag clicked
-// forever
-//     if <touching [Golden Apple v]?> then
-//         change [Score v] by (2)
-//     end
-// end`;
+        // when @greenFlag clicked
+        // forever
+        //     if <touching [Golden Apple v]?> then
+        //         change [Score v] by (2)
+        //     end
+        // end`;
 
-        this.storyboardOverall.globalVariables.forEach((variable) => this.runtime.createNewGlobalVariable(variable));
+        this.storyboardOverall.globalVariables.forEach(variable => this.runtime.createNewGlobalVariable(variable));
         // this.runtime.targets.forEach(target => {
         //     const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, target.getName());
         //     console.log(`Behavior blocks for ${target.getName()}:`, behaviorBlocks);
         //     // per block group parse the pseudo code to create blocks
         //     behaviorBlocks.forEach(pseudoblocks => {
         //         console.log(pseudoblocks);
-        //         const blocks = parsePseudoCode(pseudoblocks, 
+        //         const blocks = parsePseudoCode(pseudoblocks,
         //             Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
         //             Object.values(target.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
         //             this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
@@ -1310,18 +1309,18 @@ class VirtualMachine extends EventEmitter {
         //         }
         //     });
         //     console.log(target.storyboardBlocks);
-        // });                         
+        // });
 
         const behaviorBlocks = this.extractBehaviorBlocks(feedbackResponse, this.editingTarget.getName());
         console.log(`Behavior blocks for ${this.editingTarget.getName()}:`, behaviorBlocks);
         // per block group parse the pseudo code to create blocks
         behaviorBlocks.forEach(pseudoblocks => {
             console.log(pseudoblocks);
-            const blocks = parsePseudoCode(pseudoblocks, 
+            const blocks = parsePseudoCode(pseudoblocks,
                 Object.values(this.runtime.targets.find(t => t.isStage)?.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
                 Object.values(this.editingTarget.variables).map(variable => ({name: variable.name, id: variable.id, type: variable.type})),
                 this.runtime.targets.map(t => ({name: t.getName(), id: t.id}))
-                );
+            );
             for (const group of blocks) {
                 for (const block of Object.values(group.blocks)) {
                     this.editingTarget.storyboardBlocks.createBlock(block);
@@ -1925,9 +1924,10 @@ ${behavior.relatedSprites.length > 0 ? related_sprites_string + behavior.related
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
-        Object.entries(this.editingTarget.comments).filter(([key, value]) => key.includes('story')).forEach(([key, value]) => {
-            value.storyboardComment = true;
-        });
+        Object.entries(this.editingTarget.comments).filter(([key, value]) => key.includes('story'))
+            .forEach(([key, value]) => {
+                value.storyboardComment = true;
+            });
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
                                 ${globalVariables.map(v => v.toXML()).join()}

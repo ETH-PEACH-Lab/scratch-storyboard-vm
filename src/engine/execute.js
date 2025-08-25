@@ -124,7 +124,7 @@ const handlePromise = (primitiveReportedValue, sequencer, thread, blockCached, l
                     return;
                 }
                 if (thread.storyboardMode) {
-                    nextBlockId = thread.target.storyboardBlocks.getNextBlock(popped);  
+                    nextBlockId = thread.target.storyboardBlocks.getNextBlock(popped);
                 } else {
                     nextBlockId = thread.target.blocks.getNextBlock(popped);
                 }
@@ -351,19 +351,20 @@ class BlockCached {
             const input = this._inputs[inputName];
             if (input.block) {
                 const inputCached = BlocksExecuteCache.getCached(blockContainer, input.block, BlockCached);
+                if (inputCached) {
+                    if (inputCached._isHat) {
+                        continue;
+                    }
 
-                if (inputCached._isHat) {
-                    continue;
-                }
+                    this._ops.push(...inputCached._ops);
+                    inputCached._parentKey = inputName;
+                    inputCached._parentValues = this._argValues;
 
-                this._ops.push(...inputCached._ops);
-                inputCached._parentKey = inputName;
-                inputCached._parentValues = this._argValues;
-
-                // Shadow values are static and do not change, go ahead and
-                // store their value on args.
-                if (inputCached._isShadowBlock) {
-                    this._argValues[inputName] = inputCached._shadowValue;
+                    // Shadow values are static and do not change, go ahead and
+                    // store their value on args.
+                    if (inputCached._isShadowBlock) {
+                        this._argValues[inputName] = inputCached._shadowValue;
+                    }
                 }
             }
         }
