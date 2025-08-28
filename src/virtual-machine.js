@@ -991,7 +991,7 @@ class VirtualMachine extends EventEmitter {
         console.log(new Date().toISOString());
         console.log(response);
 
-        const understandingFeedback = response ? response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
+        const understandingFeedback = (response && response.match(/{[\s\S]*}/)) ? response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
         console.log(understandingFeedback);
         // take response appart
         try {

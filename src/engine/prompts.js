@@ -31,7 +31,7 @@ Then based on the student's project description and the solution give feedback o
 The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. Be short and specific.
 Also classify if a component is Complete or Incomplete, this will be saved in the status color.
 
-The response should be in a json format like this:
+The response must be in a json format like this, even if there is no project description:
 {
     "overallDescriptionFeedback": {
         "text": "correctness and completeness of the overall project description.",
@@ -58,9 +58,9 @@ const planningFeedbackPrompt = function (vm, language) {
     const prompt = `You are an expert that gives structured feedback on a student's Scratch project.
 You will be given a project description, a list of behaviors, and a reference project.
 The project description and list of behaviors will be in ${language}.
-Your task is to provide feedback on the project in ${language}, including:
+Your task is to provide feedback on the project in ${language}:
 For each sprite on a list of behaviors used in the project, 
-including their descriptions and any related sprites or blocks.
+including their descriptions, variables, any related sprites, costumes or sounds.
 
 Here is the reference project pseudocode from each sprite:
 ${vm.referenceProjectPseudoCodeString}
@@ -75,7 +75,7 @@ Everything below is the student's project description and behaviors.
 The project title: ${vm.storyboardOverall.title}
 The overall project description:
 ${vm.storyboardOverall.description}
-The global variables comma-separated: ${vm.storyboardOverall.globalVariables}
+The global variables: ${vm.storyboardOverall.globalVariables.join(", ")}
 
 The sprite behaviors:
 ${JSON.stringify(vm.runtime.targets.map(target => ({
@@ -89,7 +89,7 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
         }))
     })))}
     
-The feedback should be structured as follows:
+The response must be in a json format like this, even if there is no behavior description:
 {
     "sprites": [
         {
@@ -105,8 +105,7 @@ The feedback should be structured as follows:
                         "relatedSprites": "correctness and completeness of the related sprites.",
                     }
                 }
-            ]
-            
+            ]       
         }
     ]
 }
@@ -137,14 +136,11 @@ And for the fields like relatedSprites and variables give feedback about complet
 const statusFeedbackPrompt = function (feedback) {
     const prompt = `
 Based on the following feedback, state if the corresponding components of the sprite and behavior are Complete, Incomplete or NeedsImprovement
-
 here is the feedback: ${feedback}
 
 The output should look like this, but have the sprite names from the project and feedback above:
 
 {
-    "overallDescriptionFeedback": "NeedsImprovement",
-    "globalVariablesFeedback": "Complete",
     "sprites": [
         {
             "name": "Sprite name 1",
