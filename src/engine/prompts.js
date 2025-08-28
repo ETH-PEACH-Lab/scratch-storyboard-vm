@@ -28,9 +28,27 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
 First try to understand the reference project as it is a solution to the project (what is happening?). 
 But don't state what you have understood in the feedback nore that you have access to the pseudocode. Do not mention the reference project in the feedback.
 Then based on the student's project description and the solution give feedback on the student's description. The student is around 12 years old and has basic programming knowledge.
-The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. 
-Be short and specific.
-`.trim();
+The point of this feedback is to help the student plan the project and understand the missing parts before starting to implement it. Be short and specific.
+Also classify if a component is Complete or Incomplete, this will be saved in the status color.
+
+The response should be in a json format like this:
+{
+    "overallDescriptionFeedback": {
+        "text": "correctness and completeness of the overall project description.",
+        "color": "Complete or Incomplete"
+    },
+    "globalVariablesFeedback": {
+        "text": "correctness and completeness of the global variables.",
+        "color": "Complete or Incomplete"
+    },
+    "sprites": [
+        {
+            "name": "Sprite name",
+            "text": "completeness (are all behaviors listed?)",
+            "color": "Complete or Incomplete"
+        }
+    ]
+}`;
 
     return prompt;
 };
@@ -41,9 +59,7 @@ const planningFeedbackPrompt = function (vm, language) {
 You will be given a project description, a list of behaviors, and a reference project.
 The project description and list of behaviors will be in ${language}.
 Your task is to provide feedback on the project in ${language}, including:
-1. On the description of the project.
-2. On the list of global variables used in the project.
-3. And for each sprite on a list of behaviors used in the project, 
+For each sprite on a list of behaviors used in the project, 
 including their descriptions and any related sprites or blocks.
 
 Here is the reference project pseudocode from each sprite:
@@ -75,8 +91,6 @@ ${JSON.stringify(vm.runtime.targets.map(target => ({
     
 The feedback should be structured as follows:
 {
-    "overallDescriptionFeedback": "correctness and completeness of the overall project description.",
-    "globalVariablesFeedback": "correctness and completeness of the global variables.",
     "sprites": [
         {
             "name": "Sprite name",

@@ -987,10 +987,24 @@ class VirtualMachine extends EventEmitter {
     async getUnderstandingFeedback () {
         const prompt = understandingFeedbackPrompt(this, this.getLocale());
         console.log(new Date().toISOString());
-        console.log(prompt);
         const response = await this.callGPT(prompt);
         console.log(new Date().toISOString());
         console.log(response);
+
+        const understandingFeedback = response ? response.match(/{[\s\S]*}/)[0] : 'No response from the AI model.';
+        console.log(understandingFeedback);
+        // take response appart
+        try {
+            const feedbackJson = JSON.parse(understandingFeedback);
+            this.storyboardOverall.descriptionFeedback = feedbackJson.overallDescriptionFeedback;
+            this.storyboardOverall.globalVariablesFeedback = feedbackJson.globalVariablesFeedback;
+            for (const target of this.runtime.targets) {
+                target.sprite.understandingFeedback = feedbackJson.sprites.find(sprite =>
+                    sprite.name === target.getName());
+            }
+        } catch (e) {
+            console.error('Error parsing understanding feedback:', e);
+        }
         
         this.feedbacks.push({
             type: 'understanding',
@@ -1029,16 +1043,13 @@ class VirtualMachine extends EventEmitter {
         const status = statusResponse ? statusResponse.match(/{[\s\S]*}/)[0] : 'No status response from the AI model.';
         console.log(status);
 
-
         try {
             const responseObject = JSON.parse(returnA);
             const returnStatus = JSON.parse(status);
 
             if (responseObject) {
-                this.storyboardOverall.descriptionFeedback.text = responseObject.overallDescriptionFeedback;
-                this.storyboardOverall.globalVariablesFeedback.text = responseObject.globalVariablesFeedback;
-
                 // matching feedback to sprites and behaviors
+                console.log(responseObject)
                 this.runtime.targets.forEach(target => {
                     if (!Array.isArray(target.sprite.behaviors)) return;
                     target.sprite.behaviors.forEach(behavior => {
@@ -1051,14 +1062,16 @@ class VirtualMachine extends EventEmitter {
                         behavior.feedback.relatedSprites.text = responseObject.sprites.find(sprite =>
                             sprite.name === target.getName())
                             .behaviors.find(b => b.name === behavior.name).feedback.relatedSprites;
+                        behavior.feedback.sounds.text = responseObject.sprites.find(sprite =>
+                            sprite.name === target.getName())
+                            .behaviors.find(b => b.name === behavior.name).feedback.sounds;
+                        behavior.feedback.costumes.text = responseObject.sprites.find(sprite =>
+                            sprite.name === target.getName())
+                            .behaviors.find(b => b.name === behavior.name).feedback.costumes;
                     });
                 });
 
                 if (returnStatus) {
-
-                    this.storyboardOverall.descriptionFeedback.color = returnStatus.overallDescriptionFeedback;
-                    this.storyboardOverall.globalVariablesFeedback.color = returnStatus.globalVariablesFeedback;
-
                     this.runtime.targets.forEach(target => {
                         if (!Array.isArray(target.sprite.behaviors)) return;
                         target.sprite.behaviors.forEach(behavior => {
@@ -1071,6 +1084,12 @@ class VirtualMachine extends EventEmitter {
                             behavior.feedback.relatedSprites.color = returnStatus.sprites.find(sprite =>
                                 sprite.name === target.getName())
                                 .behaviors.find(b => b.name === behavior.name).feedback.relatedSprites;
+                            behavior.feedback.sounds.text = responseObject.sprites.find(sprite =>
+                                sprite.name === target.getName())
+                                .behaviors.find(b => b.name === behavior.name).feedback.sounds;
+                            behavior.feedback.costumes.text = responseObject.sprites.find(sprite =>
+                                sprite.name === target.getName())
+                                .behaviors.find(b => b.name === behavior.name).feedback.costumes;
                         });
                     });
                 }

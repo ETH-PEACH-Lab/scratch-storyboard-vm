@@ -66,6 +66,8 @@ class Sprite {
          */
         this.behaviors = [];
 
+        /** text contains information if all sprite behaviors where listed */
+        this.understandingFeedback = {text: '', color: 'Incomplete'};
 
         /**
          * List of clones for this sprite, including the original.
