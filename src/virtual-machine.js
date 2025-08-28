@@ -1151,15 +1151,10 @@ class VirtualMachine extends EventEmitter {
     }
 
     async callGPT (feedbackPrompt) {
-        // https://storyboard.peachhub-cntr1.inf.ethz.ch/api/chat
-        const response = await fetch('http://127.0.0.1:3001/api/chat', {
+        const response = await fetch('http://localhost:3001/api/chat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                prompt: feedbackPrompt
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: feedbackPrompt })
         });
 
         // const text = await response.text();
